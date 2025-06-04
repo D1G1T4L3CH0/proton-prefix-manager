@@ -7,13 +7,13 @@ pub mod open;
 pub mod backup;
 pub mod restore;
 
-/// Proton Prefix Finder CLI
+/// Proton Prefix Manager CLI
 /// 
 /// A tool to find and manage Proton prefixes for Steam games.
 /// Run without arguments to launch the GUI.
 /// Each command has its own options - use --help with a command to see them.
 #[derive(Parser)]
-#[command(name = "proton-prefix-finder")]
+#[command(name = "proton-prefix-manager")]
 #[command(about = "Find and manage Proton prefixes easily", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]

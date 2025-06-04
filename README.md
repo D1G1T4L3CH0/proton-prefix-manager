@@ -1,6 +1,6 @@
-# Proton Prefix Finder
+# Proton Prefix Manager
 
-Proton Prefix Finder is a tool for locating and exploring the Proton prefixes created by Steam on Linux. It offers both a command line interface and a simple graphical interface built with [egui](https://github.com/emilk/egui).
+Proton Prefix Manager is a tool for locating and exploring the Proton prefixes created by Steam on Linux. It offers both a command line interface and a simple graphical interface built with [egui](https://github.com/emilk/egui).
 
 ## Overview
 
@@ -15,7 +15,7 @@ Steam uses Proton prefixes (Wine environments) to run Windows games on Linux. Th
    cd proton-prefix-manager
    cargo build --release
    ```
-   The resulting binary will be located at `target/release/proton-prefix-finder`.
+   The resulting binary will be located at `target/release/proton-prefix-manager`.
 
 Alternatively, you can install directly from the source using:
 
@@ -30,7 +30,7 @@ cargo install --path .
 Run the program without arguments to launch the GUI:
 
 ```bash
-proton-prefix-finder
+proton-prefix-manager
 ```
 
 The GUI lists your installed Steam games and shows details about each prefix. You can copy or open the prefix path and follow external links such as SteamDB or ProtonDB.
@@ -40,19 +40,19 @@ The GUI lists your installed Steam games and shows details about each prefix. Yo
 Search for games by name:
 
 ```bash
-proton-prefix-finder search "portal"
+proton-prefix-manager search "portal"
 ```
 
 Find the prefix path for a specific AppID:
 
 ```bash
-proton-prefix-finder prefix 620
+proton-prefix-manager prefix 620
 ```
 
 Open a prefix in your file manager:
 
 ```bash
-proton-prefix-finder open 620
+proton-prefix-manager open 620
 ```
 
 Back up a prefix to a directory:
