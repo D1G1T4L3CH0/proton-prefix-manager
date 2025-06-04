@@ -1,16 +1,19 @@
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 pub mod search;
 pub mod prefix;
 pub mod open;
+pub mod backup;
+pub mod restore;
 
-/// Proton Prefix Finder CLI
+/// Proton Prefix Manager CLI
 /// 
 /// A tool to find and manage Proton prefixes for Steam games.
 /// Run without arguments to launch the GUI.
 /// Each command has its own options - use --help with a command to see them.
 #[derive(Parser)]
-#[command(name = "proton-prefix-finder")]
+#[command(name = "proton-prefix-manager")]
 #[command(about = "Find and manage Proton prefixes easily", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
@@ -59,5 +62,23 @@ pub enum Commands {
     Open {
         /// The Steam App ID of the game
         appid: u32,
+    },
+
+    /// Back up the Proton prefix to a directory
+    Backup {
+        /// The Steam App ID of the game
+        appid: u32,
+
+        /// Destination directory for the backup
+        path: PathBuf,
+    },
+
+    /// Restore the Proton prefix from a backup directory
+    Restore {
+        /// The Steam App ID of the game
+        appid: u32,
+
+        /// Path to the backup directory
+        path: PathBuf,
     },
 }

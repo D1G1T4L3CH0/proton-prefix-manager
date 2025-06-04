@@ -6,7 +6,7 @@ use crate::core::steam;
 use super::game_list::GameList;
 use super::details::GameDetails;
 
-pub struct ProtonPrefixFinderApp {
+pub struct ProtonPrefixManagerApp {
     loading: bool,
     search_query: String,
     installed_games: Arc<Mutex<Vec<GameInfo>>>,
@@ -19,7 +19,7 @@ pub struct ProtonPrefixFinderApp {
     load_error: Option<String>,
 }
 
-impl Default for ProtonPrefixFinderApp {
+impl Default for ProtonPrefixManagerApp {
     fn default() -> Self {
         Self {
             loading: true,
@@ -36,7 +36,7 @@ impl Default for ProtonPrefixFinderApp {
     }
 }
 
-impl ProtonPrefixFinderApp {
+impl ProtonPrefixManagerApp {
     pub fn new() -> Self {
         let app = Self::default();
         let games = Arc::clone(&app.installed_games);
@@ -128,7 +128,7 @@ impl ProtonPrefixFinderApp {
     }
 }
 
-impl eframe::App for ProtonPrefixFinderApp {
+impl eframe::App for ProtonPrefixManagerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Apply theme
         self.apply_theme(ctx);
@@ -168,7 +168,7 @@ impl eframe::App for ProtonPrefixFinderApp {
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("Proton Prefix Finder");
+                ui.heading("Proton Prefix Manager");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button(if self.dark_mode { "☀" } else { "🌙" }).clicked() {
                         self.toggle_theme(ctx);
@@ -214,7 +214,7 @@ impl eframe::App for ProtonPrefixFinderApp {
                 }
                 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.hyperlink_to("GitHub", "https://github.com/yourusername/proton-prefix-finder");
+                    ui.hyperlink_to("GitHub", "https://github.com/yourusername/proton-prefix-manager");
                 });
             });
         });
