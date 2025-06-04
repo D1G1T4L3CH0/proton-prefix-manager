@@ -1,4 +1,4 @@
-//! # Proton Prefix Finder
+//! # Proton Prefix Manager
 //! 
 //! A tool to find and manage Proton prefixes for Steam games on Linux.
 //! 
@@ -14,25 +14,25 @@
 //! Run without arguments to launch the GUI:
 //! 
 //! ```
-//! proton-prefix-finder
+//! proton-prefix-manager
 //! ```
 //! 
 //! Search for games by name:
 //! 
 //! ```
-//! proton-prefix-finder search "portal"
+//! proton-prefix-manager search "portal"
 //! ```
 //! 
 //! Find a prefix for a specific AppID:
 //! 
 //! ```
-//! proton-prefix-finder prefix 620
+//! proton-prefix-manager prefix 620
 //! ```
 //! 
 //! Open a prefix in your file manager:
 //! 
 //! ```
-//! proton-prefix-finder open 620
+//! proton-prefix-manager open 620
 //! ```
 
 use clap::Parser;
@@ -45,7 +45,7 @@ mod core;
 mod error;
 
 use cli::{Cli, Commands};
-use gui::ProtonPrefixFinderApp;
+use gui::ProtonPrefixManagerApp;
 use utils::output::determine_format;
 
 fn main() {
@@ -69,9 +69,9 @@ fn main() {
             log::info!("Launching GUI...");
             let native_options = NativeOptions::default();
             eframe::run_native(
-                "Proton Prefix Finder",
+                "Proton Prefix Manager",
                 native_options,
-                Box::new(|_cc| Ok(Box::new(ProtonPrefixFinderApp::new()))),
+                Box::new(|_cc| Ok(Box::new(ProtonPrefixManagerApp::new()))),
             ).expect("Failed to start GUI");
         }
     }

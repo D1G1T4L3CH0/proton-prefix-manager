@@ -1,5 +1,5 @@
 [package]
-name = "proton-prefix-finder"
+name = "proton-prefix-manager"
 version = "0.1.0"
 edition = "2024"
 description = "A tool to find and manage Proton prefixes for Steam games on Linux"
