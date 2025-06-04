@@ -5,7 +5,7 @@ edition = "2024"
 description = "A tool to find and manage Proton prefixes for Steam games on Linux"
 authors = ["Your Name <your.email@example.com>"]
 license = "MIT"
-repository = "https://github.com/yourusername/proton-prefix-finder"
+repository = "https://github.com/D1G1T4L3CH0/proton-prefix-manager"
 readme = "README.md"
 
 [dependencies]
