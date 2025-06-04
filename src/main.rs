@@ -45,6 +45,9 @@ mod utils;
 mod core;
 mod error;
 
+#[cfg(test)]
+mod test_helpers;
+
 use cli::{Cli, Commands};
 use gui::ProtonPrefixFinderApp;
 use utils::output::determine_format;

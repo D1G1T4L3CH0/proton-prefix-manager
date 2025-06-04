@@ -30,6 +30,12 @@ struct ManifestCache {
 static LIBRARY_CACHE: Lazy<Mutex<Option<LibraryCache>>> = Lazy::new(|| Mutex::new(None));
 static MANIFEST_CACHE: Lazy<Mutex<Option<ManifestCache>>> = Lazy::new(|| Mutex::new(None));
 
+#[cfg(test)]
+pub fn clear_caches() {
+    *LIBRARY_CACHE.lock().unwrap() = None;
+    *MANIFEST_CACHE.lock().unwrap() = None;
+}
+
 // Cache duration (5 seconds)
 const CACHE_DURATION: std::time::Duration = std::time::Duration::from_secs(5);
 
