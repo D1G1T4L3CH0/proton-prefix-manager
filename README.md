@@ -17,6 +17,19 @@ Steam uses Proton prefixes (Wine environments) to run Windows games on Linux. Th
    ```
    The resulting binary will be located at `target/release/proton-prefix-manager`.
 
+   If compilation uses too much memory or CPU on your system, you can limit the
+   number of parallel build jobs:
+
+   ```bash
+   cargo build --release --jobs 2
+   ```
+   Alternatively, create a `.cargo/config.toml` file with:
+
+   ```toml
+   [build]
+   jobs = 2
+   ```
+
 Alternatively, you can install directly from the source using:
 
 ```bash
