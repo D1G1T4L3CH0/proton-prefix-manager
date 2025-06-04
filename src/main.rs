@@ -8,6 +8,7 @@
 //! - Find Proton prefixes for specific games
 //! - Open prefixes in your file manager
 //! - GUI and CLI interfaces
+//! - Back up and restore prefixes
 //! 
 //! ## Usage
 //! 
@@ -64,6 +65,12 @@ fn main() {
         }
         Some(Commands::Open { appid }) => {
             cli::open::execute(*appid);
+        }
+        Some(Commands::Backup { appid, path }) => {
+            cli::backup::execute(*appid, path.clone());
+        }
+        Some(Commands::Restore { appid, path }) => {
+            cli::restore::execute(*appid, path.clone());
         }
         None => {
             log::info!("Launching GUI...");
