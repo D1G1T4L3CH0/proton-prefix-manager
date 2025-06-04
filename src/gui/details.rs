@@ -316,8 +316,3 @@ fn find_install_dir(app_id: u32) -> Option<std::path::PathBuf> {
     None
 }
 
-fn lerp(start: u8, end: u8, t: f32) -> u8 {
-    let start_f = start as f32;
-    let end_f = end as f32;
-    (start_f + (end_f - start_f) * t) as u8
-}
