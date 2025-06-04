@@ -147,7 +147,9 @@ mod tests {
     #[test]
     fn test_steam_library_creation() {
         let temp_dir = tempdir().unwrap();
-        
+        // Create the steamapps directory to satisfy `is_valid` checks
+        std::fs::create_dir(temp_dir.path().join("steamapps")).unwrap();
+
         // Test valid library
         let library = SteamLibrary::new(temp_dir.path().to_path_buf()).unwrap();
         assert_eq!(library.path(), temp_dir.path());
