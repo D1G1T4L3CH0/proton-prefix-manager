@@ -55,6 +55,18 @@ Open a prefix in your file manager:
 proton-prefix-finder open 620
 ```
 
+Back up a prefix to a directory:
+
+```bash
+proton-prefix-finder backup 620 /path/to/backup
+```
+
+Restore a prefix from a backup:
+
+```bash
+proton-prefix-finder restore 620 /path/to/backup
+```
+
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.
 
 ## Project goals
