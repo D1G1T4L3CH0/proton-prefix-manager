@@ -55,16 +55,40 @@ Open a prefix in your file manager:
 proton-prefix-manager open 620
 ```
 
-Back up a prefix to a directory:
+Back up a prefix (stored in `~/.local/share/proton-prefix-manager/backups`):
 
 ```bash
-proton-prefix-manager backup 620 /path/to/backup
+proton-prefix-manager backup 620
 ```
 
-Restore a prefix from a backup:
+Restore a prefix from a backup directory:
 
 ```bash
 proton-prefix-manager restore 620 /path/to/backup
+```
+
+List backups for a game:
+
+```bash
+proton-prefix-manager list-backups 620
+```
+
+Delete a backup:
+
+```bash
+proton-prefix-manager delete-backup 620 /path/to/backup
+```
+
+Reset a prefix:
+
+```bash
+proton-prefix-manager reset 620
+```
+
+Clear shader cache:
+
+```bash
+proton-prefix-manager clear-cache 620
 ```
 
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.
