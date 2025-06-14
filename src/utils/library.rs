@@ -117,7 +117,21 @@ mod tests {
 
     #[test]
     fn test_library_parsing() {
-        // Example test, replace with real logic later
-        assert!(true);
+        let dir = tempdir().unwrap();
+        let lib1 = dir.path().join("lib1");
+        let lib2 = dir.path().join("lib2");
+        std::fs::create_dir_all(&lib1).unwrap();
+        std::fs::create_dir_all(&lib2).unwrap();
+        let vdf_path = dir.path().join("libraryfolders.vdf");
+        let content = format!(
+            "\"libraryfolders\" {{\n    \"0\" {{\n        \"path\" \"{}\"\n    }}\n    \"1\" {{\n        \"path\" \"{}\"\n    }}\n}}",
+            lib1.display(),
+            lib2.display()
+        );
+        std::fs::write(&vdf_path, content).unwrap();
+        let libs = parse_libraryfolders_vdf(vdf_path.to_str().unwrap()).unwrap();
+        assert_eq!(libs.len(), 2);
+        assert!(libs.contains(&lib1));
+        assert!(libs.contains(&lib2));
     }
 }

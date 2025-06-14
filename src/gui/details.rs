@@ -1,4 +1,6 @@
 use crate::core::models::GameInfo;
+use crate::utils::backup as backup_utils;
+use tinyfiledialogs as tfd;
 use eframe::egui;
 use std::fs;
 use std::path::Path;
@@ -103,6 +105,27 @@ impl<'a> GameDetails<'a> {
                     if drive_c.exists() {
                         self.show_path(ui, "Drive C:", &drive_c);
                     }
+
+                    ui.horizontal(|ui| {
+                        if ui.button("📦 Backup").clicked() {
+                            if let Some(dir) = tfd::select_folder_dialog("Select backup directory", "") {
+                                let path = std::path::PathBuf::from(dir);
+                                match backup_utils::backup_prefix(game.prefix_path(), &path) {
+                                    Ok(p) => tfd::message_box_ok("Backup", &format!("Backup created at {}", p.display()), tfd::MessageBoxIcon::Info),
+                                    Err(e) => tfd::message_box_ok("Backup failed", &format!("{}", e), tfd::MessageBoxIcon::Error),
+                                }
+                            }
+                        }
+                        if ui.button("♻️ Restore").clicked() {
+                            if let Some(dir) = tfd::select_folder_dialog("Select backup to restore", "") {
+                                let path = std::path::PathBuf::from(dir);
+                                match backup_utils::restore_prefix(&path, game.prefix_path()) {
+                                    Ok(_) => tfd::message_box_ok("Restore", "Prefix restored", tfd::MessageBoxIcon::Info),
+                                    Err(e) => tfd::message_box_ok("Restore failed", &format!("{}", e), tfd::MessageBoxIcon::Error),
+                                }
+                            }
+                        }
+                    });
                 });
 
             // Proton Information
