@@ -1,10 +1,11 @@
 use crate::core::models::GameInfo;
+use crate::core::steam;
 use crate::utils::backup as backup_utils;
-use tinyfiledialogs as tfd;
 use eframe::egui;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tinyfiledialogs as tfd;
 
 pub struct GameDetails<'a> {
     game: Option<&'a GameInfo>,
@@ -108,20 +109,84 @@ impl<'a> GameDetails<'a> {
 
                     ui.horizontal(|ui| {
                         if ui.button("📦 Backup").clicked() {
-                            if let Some(dir) = tfd::select_folder_dialog("Select backup directory", "") {
-                                let path = std::path::PathBuf::from(dir);
-                                match backup_utils::backup_prefix(game.prefix_path(), &path) {
-                                    Ok(p) => tfd::message_box_ok("Backup", &format!("Backup created at {}", p.display()), tfd::MessageBoxIcon::Info),
-                                    Err(e) => tfd::message_box_ok("Backup failed", &format!("{}", e), tfd::MessageBoxIcon::Error),
-                                }
+                            match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
+                                Ok(p) => tfd::message_box_ok(
+                                    "Backup",
+                                    &format!("Backup created at {}", p.display()),
+                                    tfd::MessageBoxIcon::Info,
+                                ),
+                                Err(e) => tfd::message_box_ok(
+                                    "Backup failed",
+                                    &format!("{}", e),
+                                    tfd::MessageBoxIcon::Error,
+                                ),
                             }
                         }
                         if ui.button("♻️ Restore").clicked() {
-                            if let Some(dir) = tfd::select_folder_dialog("Select backup to restore", "") {
+                            if let Some(dir) =
+                                tfd::select_folder_dialog("Select backup to restore", "")
+                            {
                                 let path = std::path::PathBuf::from(dir);
                                 match backup_utils::restore_prefix(&path, game.prefix_path()) {
-                                    Ok(_) => tfd::message_box_ok("Restore", "Prefix restored", tfd::MessageBoxIcon::Info),
-                                    Err(e) => tfd::message_box_ok("Restore failed", &format!("{}", e), tfd::MessageBoxIcon::Error),
+                                    Ok(_) => tfd::message_box_ok(
+                                        "Restore",
+                                        "Prefix restored",
+                                        tfd::MessageBoxIcon::Info,
+                                    ),
+                                    Err(e) => tfd::message_box_ok(
+                                        "Restore failed",
+                                        &format!("{}", e),
+                                        tfd::MessageBoxIcon::Error,
+                                    ),
+                                }
+                            }
+                        }
+                        if ui.button("🗑 Delete Backup").clicked() {
+                            if let Some(dir) =
+                                tfd::select_folder_dialog("Select backup to delete", "")
+                            {
+                                let path = std::path::PathBuf::from(dir);
+                                match backup_utils::delete_backup(&path) {
+                                    Ok(_) => tfd::message_box_ok(
+                                        "Delete",
+                                        "Backup removed",
+                                        tfd::MessageBoxIcon::Info,
+                                    ),
+                                    Err(e) => tfd::message_box_ok(
+                                        "Delete failed",
+                                        &format!("{}", e),
+                                        tfd::MessageBoxIcon::Error,
+                                    ),
+                                }
+                            }
+                        }
+                        if ui.button("🗑 Reset Prefix").clicked() {
+                            match backup_utils::reset_prefix(game.prefix_path()) {
+                                Ok(_) => tfd::message_box_ok(
+                                    "Reset",
+                                    "Prefix deleted",
+                                    tfd::MessageBoxIcon::Info,
+                                ),
+                                Err(e) => tfd::message_box_ok(
+                                    "Reset failed",
+                                    &format!("{}", e),
+                                    tfd::MessageBoxIcon::Error,
+                                ),
+                            }
+                        }
+                        if ui.button("🧹 Clear Cache").clicked() {
+                            if let Ok(libs) = steam::get_steam_libraries() {
+                                match backup_utils::clear_shader_cache(game.app_id(), &libs) {
+                                    Ok(_) => tfd::message_box_ok(
+                                        "Cache",
+                                        "Shader cache cleared",
+                                        tfd::MessageBoxIcon::Info,
+                                    ),
+                                    Err(e) => tfd::message_box_ok(
+                                        "Cache failed",
+                                        &format!("{}", e),
+                                        tfd::MessageBoxIcon::Error,
+                                    ),
                                 }
                             }
                         }

@@ -1,6 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use chrono::Local;
+use dirs_next;
+
+use crate::core::models::SteamLibrary;
 use crate::error::{Error, Result};
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
@@ -21,21 +25,27 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
 }
 
 /// Back up a Proton prefix by copying it to the given destination directory.
-pub fn backup_prefix(prefix_path: &Path, backup_path: &Path) -> Result<PathBuf> {
+pub fn backup_root() -> PathBuf {
+    dirs_next::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("proton-prefix-manager")
+        .join("backups")
+}
+
+pub fn create_backup(prefix_path: &Path, appid: u32) -> Result<PathBuf> {
     if !prefix_path.exists() {
         return Err(Error::FileSystemError(format!(
             "Prefix not found: {}",
             prefix_path.display()
         )));
     }
-    if backup_path.exists() {
-        return Err(Error::FileSystemError(format!(
-            "Backup destination already exists: {}",
-            backup_path.display()
-        )));
-    }
-    copy_dir_recursive(prefix_path, backup_path)?;
-    Ok(backup_path.to_path_buf())
+
+    let root = backup_root().join(appid.to_string());
+    fs::create_dir_all(&root)?;
+    let timestamp = Local::now().format("%Y%m%d%H%M%S").to_string();
+    let dest = root.join(timestamp);
+    copy_dir_recursive(prefix_path, &dest)?;
+    Ok(dest)
 }
 
 /// Restore a Proton prefix from a backup directory.
@@ -54,22 +64,59 @@ pub fn restore_prefix(backup_path: &Path, prefix_path: &Path) -> Result<PathBuf>
     Ok(prefix_path.to_path_buf())
 }
 
+pub fn list_backups(appid: u32) -> Vec<PathBuf> {
+    let root = backup_root().join(appid.to_string());
+    if let Ok(entries) = fs::read_dir(root) {
+        let mut list: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+        list.sort();
+        list
+    } else {
+        Vec::new()
+    }
+}
+
+pub fn delete_backup(path: &Path) -> Result<()> {
+    if path.exists() {
+        fs::remove_dir_all(path)?;
+    }
+    Ok(())
+}
+
+pub fn reset_prefix(prefix_path: &Path) -> Result<()> {
+    if prefix_path.exists() {
+        fs::remove_dir_all(prefix_path)?;
+    }
+    Ok(())
+}
+
+pub fn clear_shader_cache(appid: u32, libraries: &[SteamLibrary]) -> Result<()> {
+    for lib in libraries {
+        let cache = lib
+            .steamapps_path()
+            .join("shadercache")
+            .join(appid.to_string());
+        if cache.exists() {
+            fs::remove_dir_all(cache)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::io::Write;
+    use tempfile::tempdir;
 
     #[test]
     fn test_backup_and_restore() {
         let dir = tempdir().unwrap();
         let prefix = dir.path().join("prefix");
-        let backup = dir.path().join("backup");
         fs::create_dir_all(prefix.join("sub")).unwrap();
         let mut f = fs::File::create(prefix.join("sub/file.txt")).unwrap();
         writeln!(f, "test").unwrap();
 
-        backup_prefix(&prefix, &backup).unwrap();
+        let backup = create_backup(&prefix, 42).unwrap();
         assert!(backup.join("sub/file.txt").exists());
 
         fs::remove_dir_all(&prefix).unwrap();
