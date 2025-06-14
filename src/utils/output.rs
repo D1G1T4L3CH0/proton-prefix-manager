@@ -1,6 +1,6 @@
+use crate::core::models::GameInfo;
 use serde::Serialize;
 use std::path::PathBuf;
-use crate::core::models::GameInfo;
 
 #[derive(Serialize)]
 pub struct SearchResult {
@@ -66,7 +66,8 @@ pub fn print_search_results(results: Vec<GameInfo>, format: &OutputFormat) {
         }
         OutputFormat::Delimited(delimiter) => {
             for game in results {
-                println!("{}{}{}{}{}",
+                println!(
+                    "{}{}{}{}{}",
                     game.app_id(),
                     delimiter,
                     game.name(),
@@ -82,30 +83,28 @@ pub fn print_search_results(results: Vec<GameInfo>, format: &OutputFormat) {
     }
 }
 
+#[cfg(not(test))]
 pub fn print_prefix_result(appid: u32, prefix: Option<PathBuf>, format: &OutputFormat) {
     match format {
-        OutputFormat::Normal => {
-            match prefix {
-                Some(path) => println!("✅ Found prefix for [{}]: {}", appid, path.display()),
-                None => println!("❌ No prefix found for [{}]", appid),
-            }
-        }
-        OutputFormat::Plain => {
-            match prefix {
-                Some(path) => println!("prefix={}", path.display()),
-                None => println!("prefix="),
-            }
-        }
+        OutputFormat::Normal => match prefix {
+            Some(path) => println!("✅ Found prefix for [{}]: {}", appid, path.display()),
+            None => println!("❌ No prefix found for [{}]", appid),
+        },
+        OutputFormat::Plain => match prefix {
+            Some(path) => println!("prefix={}", path.display()),
+            None => println!("prefix="),
+        },
         OutputFormat::Json => {
-            let result = PrefixResult { appid, prefix_path: prefix };
+            let result = PrefixResult {
+                appid,
+                prefix_path: prefix,
+            };
             println!("{}", serde_json::to_string_pretty(&result).unwrap());
         }
-        OutputFormat::Delimited(delimiter) => {
-            match prefix {
-                Some(path) => println!("{}{}{}", appid, delimiter, path.display()),
-                None => println!("{}{}", appid, delimiter),
-            }
-        }
+        OutputFormat::Delimited(delimiter) => match prefix {
+            Some(path) => println!("{}{}{}", appid, delimiter, path.display()),
+            None => println!("{}{}", appid, delimiter),
+        },
     }
 }
 

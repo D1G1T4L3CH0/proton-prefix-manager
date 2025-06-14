@@ -1,4 +1,5 @@
 use crate::core::steam;
+#[cfg(not(test))]
 use crate::utils::output;
 use crate::utils::output::OutputFormat;
 
@@ -13,7 +14,8 @@ fn emit_prefix_result(appid: u32, prefix: Option<std::path::PathBuf>, format: &O
 }
 
 #[cfg(test)]
-pub static PREFIX_RESULTS: Lazy<Mutex<Vec<(u32, Option<std::path::PathBuf>)>>> = Lazy::new(|| Mutex::new(Vec::new()));
+pub static PREFIX_RESULTS: Lazy<Mutex<Vec<(u32, Option<std::path::PathBuf>)>>> =
+    Lazy::new(|| Mutex::new(Vec::new()));
 
 #[cfg(test)]
 fn emit_prefix_result(appid: u32, prefix: Option<std::path::PathBuf>, _format: &OutputFormat) {
@@ -24,12 +26,12 @@ pub fn execute(appid: u32, format: &OutputFormat) {
     if matches!(format, OutputFormat::Normal) {
         println!("🔍 Locating Proton prefix for AppID: {}", appid);
     }
-    
+
     match steam::get_steam_libraries() {
         Ok(libraries) => {
             let prefix = steam::find_proton_prefix(appid, &libraries);
             emit_prefix_result(appid, prefix, format);
-        },
+        }
         Err(err) => {
             eprintln!("❌ Error: {}", err);
         }
@@ -39,9 +41,9 @@ pub fn execute(appid: u32, format: &OutputFormat) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helpers::TEST_MUTEX;
     use std::fs;
     use tempfile::tempdir;
-    use crate::test_helpers::TEST_MUTEX;
 
     fn setup_mock_steam(appid: u32) -> (tempfile::TempDir, std::path::PathBuf) {
         let home = tempdir().unwrap();
@@ -49,7 +51,9 @@ mod tests {
         fs::create_dir_all(&config_dir).unwrap();
 
         let library_dir = home.path().join("library");
-        let compat_path = library_dir.join("steamapps/compatdata").join(appid.to_string());
+        let compat_path = library_dir
+            .join("steamapps/compatdata")
+            .join(appid.to_string());
         fs::create_dir_all(&compat_path).unwrap();
 
         let vdf_path = config_dir.join("libraryfolders.vdf");
@@ -69,7 +73,9 @@ mod tests {
         let appid = 4242;
         let (home, prefix) = setup_mock_steam(appid);
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        unsafe {
+            std::env::set_var("HOME", home.path());
+        }
 
         PREFIX_RESULTS.lock().unwrap().clear();
         execute(appid, &OutputFormat::Plain);
@@ -79,7 +85,11 @@ mod tests {
         assert_eq!(results[0].0, appid);
         assert_eq!(results[0].1.as_ref().unwrap(), &prefix);
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home {
+            unsafe {
+                std::env::set_var("HOME", h);
+            }
+        }
     }
 
     #[test]
@@ -90,7 +100,9 @@ mod tests {
         let (home, prefix) = setup_mock_steam(appid);
         fs::remove_dir_all(&prefix).unwrap();
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        unsafe {
+            std::env::set_var("HOME", home.path());
+        }
 
         PREFIX_RESULTS.lock().unwrap().clear();
         execute(appid, &OutputFormat::Plain);
@@ -99,6 +111,10 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_none());
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home {
+            unsafe {
+                std::env::set_var("HOME", h);
+            }
+        }
     }
 }

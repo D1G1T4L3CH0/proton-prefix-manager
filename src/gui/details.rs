@@ -1,12 +1,12 @@
-use eframe::egui;
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
 use crate::core::models::GameInfo;
+use eframe::egui;
+use std::fs;
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct GameDetails<'a> {
     game: Option<&'a GameInfo>,
-    id: egui::Id,  // Add a unique ID for this instance
+    id: egui::Id, // Add a unique ID for this instance
 }
 
 impl<'a> GameDetails<'a> {
@@ -35,17 +35,15 @@ impl<'a> GameDetails<'a> {
                     let is_copied = copy_time > current_time;
 
                     let button_size = egui::vec2(24.0, 24.0);
-                    
+
                     // Copy button with feedback
                     let copy_button = ui.add_sized(
                         button_size,
-                        egui::Button::new(
-                            if is_copied {
-                                egui::RichText::new("✔").color(egui::Color32::from_rgb(50, 255, 50))
-                            } else {
-                                egui::RichText::new("📋")
-                            }
-                        )
+                        egui::Button::new(if is_copied {
+                            egui::RichText::new("✔").color(egui::Color32::from_rgb(50, 255, 50))
+                        } else {
+                            egui::RichText::new("📋")
+                        }),
                     );
 
                     if copy_button.clicked() {
@@ -82,12 +80,12 @@ impl<'a> GameDetails<'a> {
                 .default_open(true)
                 .show(ui, |ui| {
                     self.show_path(ui, "Prefix Path:", game.prefix_path());
-                    
+
                     if let Ok(metadata) = fs::metadata(game.prefix_path()) {
                         if let Ok(modified) = metadata.modified() {
                             if let Ok(time) = modified.duration_since(UNIX_EPOCH) {
                                 let datetime = chrono::DateTime::<chrono::Local>::from(
-                                    SystemTime::UNIX_EPOCH + time
+                                    SystemTime::UNIX_EPOCH + time,
                                 );
                                 egui::Grid::new("modified_time")
                                     .num_columns(2)
@@ -100,7 +98,7 @@ impl<'a> GameDetails<'a> {
                             }
                         }
                     }
-                    
+
                     let drive_c = game.prefix_path().join("pfx/drive_c");
                     if drive_c.exists() {
                         self.show_path(ui, "Drive C:", &drive_c);
@@ -121,7 +119,7 @@ impl<'a> GameDetails<'a> {
                         ui.label("Proton version could not be detected");
                         log::debug!("No Proton version to display");
                     }
-                    
+
                     if has_dxvk(game.prefix_path()) {
                         ui.label("✓ DXVK is enabled");
                     }
@@ -136,19 +134,19 @@ impl<'a> GameDetails<'a> {
                     } else {
                         "❌ No manifest file found"
                     });
-                    
+
                     // Last played time
                     let last_played = game.last_played();
                     if last_played > 0 {
                         let datetime = chrono::DateTime::<chrono::Local>::from(
-                            std::time::UNIX_EPOCH + std::time::Duration::from_secs(last_played)
+                            std::time::UNIX_EPOCH + std::time::Duration::from_secs(last_played),
                         );
                         ui.horizontal(|ui| {
                             ui.label("Last played:");
                             ui.monospace(datetime.format("%Y-%m-%d %H:%M").to_string());
                         });
                     }
-                    
+
                     if let Some(install_dir) = find_install_dir(game.app_id()) {
                         self.show_path(ui, "Install Directory:", &install_dir);
                     }
@@ -161,13 +159,16 @@ impl<'a> GameDetails<'a> {
                 if ui.button("🔗 SteamDB").clicked() {
                     let _ = open::that(format!("https://steamdb.info/app/{}/", game.app_id()));
                 }
-                
+
                 if ui.button("🎮 ProtonDB").clicked() {
                     let _ = open::that(format!("https://www.protondb.com/app/{}", game.app_id()));
                 }
-                
+
                 if ui.button("📚 PCGamingWiki").clicked() {
-                    let _ = open::that(format!("https://www.pcgamingwiki.com/api/appid.php?appid={}", game.app_id()));
+                    let _ = open::that(format!(
+                        "https://www.pcgamingwiki.com/api/appid.php?appid={}",
+                        game.app_id()
+                    ));
                 }
             });
         } else {
@@ -175,23 +176,6 @@ impl<'a> GameDetails<'a> {
                 ui.label("Select a game to view details");
             });
         }
-    }
-}
-
-// Helper functions
-fn format_size(size: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = KB * 1024;
-    const GB: u64 = MB * 1024;
-    
-    if size >= GB {
-        format!("{:.2} GB", size as f64 / GB as f64)
-    } else if size >= MB {
-        format!("{:.2} MB", size as f64 / MB as f64)
-    } else if size >= KB {
-        format!("{:.2} KB", size as f64 / KB as f64)
-    } else {
-        format!("{} bytes", size)
     }
 }
 
@@ -208,7 +192,7 @@ fn detect_proton_version(prefix_path: &Path) -> Option<String> {
             return Some(version);
         }
     }
-    
+
     // Check for 'version' in the parent directory (compatdata)
     if let Some(parent) = prefix_path.parent() {
         let version_file = parent.join("version");
@@ -296,14 +280,17 @@ fn has_dxvk(prefix_path: &Path) -> bool {
 
 fn find_install_dir(app_id: u32) -> Option<std::path::PathBuf> {
     use crate::core::steam;
-    
+
     if let Ok(libraries) = steam::get_steam_libraries() {
         for library in libraries {
-            let app_manifest = library.join("steamapps").join(format!("appmanifest_{}.acf", app_id));
+            let app_manifest = library
+                .join("steamapps")
+                .join(format!("appmanifest_{}.acf", app_id));
             if app_manifest.exists() {
                 if let Ok(contents) = fs::read_to_string(&app_manifest) {
                     // Look for the "installdir" field in the manifest
-                    if let Some(path) = contents.lines()
+                    if let Some(path) = contents
+                        .lines()
                         .find(|line| line.contains("installdir"))
                         .and_then(|line| line.split('"').nth(3))
                     {
@@ -315,4 +302,3 @@ fn find_install_dir(app_id: u32) -> Option<std::path::PathBuf> {
     }
     None
 }
-
