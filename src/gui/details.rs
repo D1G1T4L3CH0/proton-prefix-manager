@@ -6,10 +6,13 @@ use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tinyfiledialogs as tfd;
+use chrono::NaiveDateTime;
 
 pub struct GameDetails<'a> {
     game: Option<&'a GameInfo>,
     id: egui::Id, // Add a unique ID for this instance
+    show_restore_dialog: bool,
+    show_delete_dialog: bool,
 }
 
 impl<'a> GameDetails<'a> {
@@ -17,6 +20,8 @@ impl<'a> GameDetails<'a> {
         Self {
             game,
             id: egui::Id::new("game_details"),
+            show_restore_dialog: false,
+            show_delete_dialog: false,
         }
     }
 
@@ -68,6 +73,95 @@ impl<'a> GameDetails<'a> {
             });
     }
 
+    fn prefix_available(&self) -> bool {
+        if let Some(game) = self.game {
+            let path = game.prefix_path();
+            if path.exists() {
+                if let Ok(mut entries) = fs::read_dir(path) {
+                    return entries.next().is_some();
+                }
+            }
+        }
+        false
+    }
+
+    fn format_backup_name(path: &Path) -> String {
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if let Ok(dt) = NaiveDateTime::parse_from_str(name, "%Y%m%d%H%M%S") {
+                return dt.format("%Y-%m-%d %H:%M:%S").to_string();
+            }
+            name.to_string()
+        } else {
+            path.display().to_string()
+        }
+    }
+
+    fn restore_window(&mut self, ctx: &egui::Context, game: &GameInfo) {
+        egui::Window::new("Select Backup to Restore")
+            .collapsible(false)
+            .show(ctx, |ui| {
+                let backups = backup_utils::list_backups(game.app_id());
+                if backups.is_empty() {
+                    ui.label("No backups found");
+                } else {
+                    for backup in backups {
+                        let label = Self::format_backup_name(&backup);
+                        if ui.button(label).clicked() {
+                            match backup_utils::restore_prefix(&backup, game.prefix_path()) {
+                                Ok(_) => tfd::message_box_ok(
+                                    "Restore",
+                                    "Prefix restored",
+                                    tfd::MessageBoxIcon::Info,
+                                ),
+                                Err(e) => tfd::message_box_ok(
+                                    "Restore failed",
+                                    &format!("{}", e),
+                                    tfd::MessageBoxIcon::Error,
+                                ),
+                            };
+                            self.show_restore_dialog = false;
+                        }
+                    }
+                }
+                if ui.button("Close").clicked() {
+                    self.show_restore_dialog = false;
+                }
+            });
+    }
+
+    fn delete_window(&mut self, ctx: &egui::Context, game: &GameInfo) {
+        egui::Window::new("Select Backup to Delete")
+            .collapsible(false)
+            .show(ctx, |ui| {
+                let backups = backup_utils::list_backups(game.app_id());
+                if backups.is_empty() {
+                    ui.label("No backups found");
+                } else {
+                    for backup in backups {
+                        let label = Self::format_backup_name(&backup);
+                        if ui.button(label).clicked() {
+                            match backup_utils::delete_backup(&backup) {
+                                Ok(_) => tfd::message_box_ok(
+                                    "Delete",
+                                    "Backup removed",
+                                    tfd::MessageBoxIcon::Info,
+                                ),
+                                Err(e) => tfd::message_box_ok(
+                                    "Delete failed",
+                                    &format!("{}", e),
+                                    tfd::MessageBoxIcon::Error,
+                                ),
+                            };
+                            self.show_delete_dialog = false;
+                        }
+                    }
+                }
+                if ui.button("Close").clicked() {
+                    self.show_delete_dialog = false;
+                }
+            });
+    }
+
     pub fn show(&mut self, ui: &mut egui::Ui) {
         if let Some(game) = self.game {
             // Game title and AppID in a header section
@@ -108,87 +202,61 @@ impl<'a> GameDetails<'a> {
                     }
 
                     ui.horizontal(|ui| {
-                        if ui.button("📦 Backup").clicked() {
-                            match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
-                                Ok(p) => tfd::message_box_ok(
-                                    "Backup",
-                                    &format!("Backup created at {}", p.display()),
-                                    tfd::MessageBoxIcon::Info,
-                                ),
-                                Err(e) => tfd::message_box_ok(
-                                    "Backup failed",
-                                    &format!("{}", e),
-                                    tfd::MessageBoxIcon::Error,
-                                ),
+                        if self.prefix_available() {
+                            if ui.button("📦 Backup").clicked() {
+                                match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
+                                    Ok(p) => tfd::message_box_ok(
+                                        "Backup",
+                                        &format!("Backup created at {}", p.display()),
+                                        tfd::MessageBoxIcon::Info,
+                                    ),
+                                    Err(e) => tfd::message_box_ok(
+                                        "Backup failed",
+                                        &format!("{}", e),
+                                        tfd::MessageBoxIcon::Error,
+                                    ),
+                                }
+                            }
+
+                            if ui.button("🗑 Reset Prefix").clicked() {
+                                match backup_utils::reset_prefix(game.prefix_path()) {
+                                    Ok(_) => tfd::message_box_ok(
+                                        "Reset",
+                                        "Prefix deleted",
+                                        tfd::MessageBoxIcon::Info,
+                                    ),
+                                    Err(e) => tfd::message_box_ok(
+                                        "Reset failed",
+                                        &format!("{}", e),
+                                        tfd::MessageBoxIcon::Error,
+                                    ),
+                                }
+                            }
+
+                            if ui.button("🧹 Clear Cache").clicked() {
+                                if let Ok(libs) = steam::get_steam_libraries() {
+                                    match backup_utils::clear_shader_cache(game.app_id(), &libs) {
+                                        Ok(_) => tfd::message_box_ok(
+                                            "Cache",
+                                            "Shader cache cleared",
+                                            tfd::MessageBoxIcon::Info,
+                                        ),
+                                        Err(e) => tfd::message_box_ok(
+                                            "Cache failed",
+                                            &format!("{}", e),
+                                            tfd::MessageBoxIcon::Error,
+                                        ),
+                                    }
+                                }
                             }
                         }
+
                         if ui.button("♻️ Restore").clicked() {
-                            if let Some(dir) =
-                                tfd::select_folder_dialog("Select backup to restore", "")
-                            {
-                                let path = std::path::PathBuf::from(dir);
-                                match backup_utils::restore_prefix(&path, game.prefix_path()) {
-                                    Ok(_) => tfd::message_box_ok(
-                                        "Restore",
-                                        "Prefix restored",
-                                        tfd::MessageBoxIcon::Info,
-                                    ),
-                                    Err(e) => tfd::message_box_ok(
-                                        "Restore failed",
-                                        &format!("{}", e),
-                                        tfd::MessageBoxIcon::Error,
-                                    ),
-                                }
-                            }
+                            self.show_restore_dialog = true;
                         }
+
                         if ui.button("🗑 Delete Backup").clicked() {
-                            if let Some(dir) =
-                                tfd::select_folder_dialog("Select backup to delete", "")
-                            {
-                                let path = std::path::PathBuf::from(dir);
-                                match backup_utils::delete_backup(&path) {
-                                    Ok(_) => tfd::message_box_ok(
-                                        "Delete",
-                                        "Backup removed",
-                                        tfd::MessageBoxIcon::Info,
-                                    ),
-                                    Err(e) => tfd::message_box_ok(
-                                        "Delete failed",
-                                        &format!("{}", e),
-                                        tfd::MessageBoxIcon::Error,
-                                    ),
-                                }
-                            }
-                        }
-                        if ui.button("🗑 Reset Prefix").clicked() {
-                            match backup_utils::reset_prefix(game.prefix_path()) {
-                                Ok(_) => tfd::message_box_ok(
-                                    "Reset",
-                                    "Prefix deleted",
-                                    tfd::MessageBoxIcon::Info,
-                                ),
-                                Err(e) => tfd::message_box_ok(
-                                    "Reset failed",
-                                    &format!("{}", e),
-                                    tfd::MessageBoxIcon::Error,
-                                ),
-                            }
-                        }
-                        if ui.button("🧹 Clear Cache").clicked() {
-                            if let Ok(libs) = steam::get_steam_libraries() {
-                                match backup_utils::clear_shader_cache(game.app_id(), &libs) {
-                                    Ok(_) => tfd::message_box_ok(
-                                        "Cache",
-                                        "Shader cache cleared",
-                                        tfd::MessageBoxIcon::Info,
-                                    ),
-                                    Err(e) => tfd::message_box_ok(
-                                        "Cache failed",
-                                        &format!("{}", e),
-                                        tfd::MessageBoxIcon::Error,
-                                    ),
-                                }
-                            }
+                            self.show_delete_dialog = true;
                         }
                     });
                 });
@@ -259,6 +327,14 @@ impl<'a> GameDetails<'a> {
                     ));
                 }
             });
+
+            if self.show_restore_dialog {
+                self.restore_window(ui.ctx(), game);
+            }
+
+            if self.show_delete_dialog {
+                self.delete_window(ui.ctx(), game);
+            }
         } else {
             ui.centered_and_justified(|ui| {
                 ui.label("Select a game to view details");

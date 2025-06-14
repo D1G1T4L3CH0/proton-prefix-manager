@@ -248,19 +248,17 @@ impl eframe::App for ProtonPrefixManagerApp {
                 return;
             }
 
-            ui.columns(2, |cols| {
-                let (left_col, right_col) = cols.split_at_mut(1);
-                let left_ui = &mut left_col[0];
-                let right_ui = &mut right_col[0];
+            egui::SidePanel::left("game_list_panel")
+                .resizable(true)
+                .show(ctx, |ui| {
+                    GameList::new(&self.filtered_games).show(ui, &mut self.selected_game);
+                });
 
-                // Game list component
-                GameList::new(&self.filtered_games).show(left_ui, &mut self.selected_game);
-
-                // Game details component in a ScrollArea
+            egui::CentralPanel::default().show(ctx, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false; 2])
                     .id_salt("details_panel")
-                    .show(right_ui, |ui| {
+                    .show(ui, |ui| {
                         GameDetails::new(self.selected_game.as_ref()).show(ui);
                     });
             });
