@@ -1,20 +1,20 @@
 //! Data models used throughout the application.
 
-use std::path::PathBuf;
 use crate::error::{Error, Result};
+use std::path::PathBuf;
 
 /// Represents a Steam game with its Proton prefix information.
 #[derive(Clone, Debug)]
 pub struct GameInfo {
     /// The Steam AppID of the game
     app_id: u32,
-    
+
     /// The name of the game
     name: String,
-    
+
     /// The path to the Proton prefix for this game
     prefix_path: PathBuf,
-    
+
     /// Whether the game has a manifest file (appmanifest_*.acf)
     has_manifest: bool,
 
@@ -24,13 +24,21 @@ pub struct GameInfo {
 
 impl GameInfo {
     /// Creates a new GameInfo instance with validation.
-    pub fn new(app_id: u32, name: String, prefix_path: PathBuf, has_manifest: bool, last_played: u64) -> Result<Self> {
+    pub fn new(
+        app_id: u32,
+        name: String,
+        prefix_path: PathBuf,
+        has_manifest: bool,
+        last_played: u64,
+    ) -> Result<Self> {
         if app_id == 0 {
             return Err(Error::InvalidAppId("AppID cannot be zero".to_string()));
         }
 
         if name.is_empty() {
-            return Err(Error::InvalidManifest("Game name cannot be empty".to_string()));
+            return Err(Error::InvalidManifest(
+                "Game name cannot be empty".to_string(),
+            ));
         }
 
         Ok(Self {
@@ -88,13 +96,17 @@ impl SteamLibrary {
         }
 
         if !path.is_dir() {
-            return Err(Error::FileSystemError(format!("{} is not a directory", path.display())));
+            return Err(Error::FileSystemError(format!(
+                "{} is not a directory",
+                path.display()
+            )));
         }
 
         Ok(Self { path })
     }
 
     /// Gets the path to the library folder.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn path(&self) -> &PathBuf {
         &self.path
     }
@@ -110,6 +122,7 @@ impl SteamLibrary {
     }
 
     /// Checks if the library is valid and accessible.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn is_valid(&self) -> bool {
         self.path.exists() && self.steamapps_path().exists()
     }
@@ -129,9 +142,16 @@ mod tests {
     fn test_game_info_creation() {
         let temp_dir = tempdir().unwrap();
         let prefix_path = temp_dir.path().join("compatdata").join("123456");
-        
+
         // Test valid creation
-        let game = GameInfo::new(123456, "Test Game".to_string(), prefix_path.clone(), true, 0).unwrap();
+        let game = GameInfo::new(
+            123456,
+            "Test Game".to_string(),
+            prefix_path.clone(),
+            true,
+            0,
+        )
+        .unwrap();
         assert_eq!(game.app_id(), 123456);
         assert_eq!(game.name(), "Test Game");
         assert_eq!(game.prefix_path(), &prefix_path);
@@ -163,4 +183,4 @@ mod tests {
         let joined = library.join("test/path");
         assert_eq!(joined, temp_dir.path().join("test/path"));
     }
-} 
+}
