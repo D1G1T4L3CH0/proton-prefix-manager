@@ -33,7 +33,7 @@ Run the program without arguments to launch the GUI:
 proton-prefix-manager
 ```
 
-The GUI lists your installed Steam games and shows details about each prefix. You can copy or open the prefix path and follow external links such as SteamDB or ProtonDB.
+The GUI lists your installed Steam games and shows details about each prefix. You can copy or open the prefix path, run Protontricks or launch `winecfg` for the selected game, and follow external links such as SteamDB or ProtonDB.
 
 ### Command line interface
 
@@ -89,6 +89,18 @@ Clear shader cache:
 
 ```bash
 proton-prefix-manager clear-cache 620
+```
+
+Run protontricks:
+
+```bash
+proton-prefix-manager protontricks 620
+```
+
+Launch winecfg:
+
+```bash
+proton-prefix-manager winecfg 620
 ```
 
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.

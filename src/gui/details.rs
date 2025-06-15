@@ -2,6 +2,8 @@ use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::backup as backup_utils;
 use eframe::egui;
+use std::thread;
+use crate::cli::{protontricks, winecfg};
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -259,6 +261,20 @@ impl<'a> GameDetails<'a> {
                                         ),
                                     }
                                 }
+                            }
+
+                            if ui.button("🔧 Protontricks").clicked() {
+                                let appid = game.app_id();
+                                thread::spawn(move || {
+                                    protontricks::execute(appid, &[]);
+                                });
+                            }
+
+                            if ui.button("⚙️ winecfg").clicked() {
+                                let appid = game.app_id();
+                                thread::spawn(move || {
+                                    winecfg::execute(appid);
+                                });
                             }
                         }
 
