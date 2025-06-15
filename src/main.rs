@@ -97,6 +97,12 @@ fn main() {
         Some(Commands::ClearCache { appid }) => {
             cli::clear_cache::execute(*appid);
         }
+        Some(Commands::Protontricks { appid, args }) => {
+            cli::protontricks::execute(*appid, args);
+        }
+        Some(Commands::Winecfg { appid }) => {
+            cli::winecfg::execute(*appid);
+        }
         None => {
             log::info!("Launching GUI...");
             let native_options = NativeOptions::default();
