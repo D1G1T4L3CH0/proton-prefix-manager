@@ -5,6 +5,7 @@ use eframe::egui;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::process::Command;
 use tinyfiledialogs as tfd;
 use chrono::NaiveDateTime;
 
@@ -257,6 +258,70 @@ impl<'a> GameDetails<'a> {
                                             &format!("{}", e),
                                             tfd::MessageBoxIcon::Error,
                                         ),
+                                    }
+                                }
+                            }
+
+                            if ui.button("🔧 Protontricks").clicked() {
+                                match steam::get_steam_libraries() {
+                                    Ok(libs) => {
+                                        if steam::find_proton_prefix(game.app_id(), &libs).is_some() {
+                                            if let Err(e) = Command::new("protontricks")
+                                                .arg(game.app_id().to_string())
+                                                .spawn()
+                                            {
+                                                tfd::message_box_ok(
+                                                    "Protontricks",
+                                                    &format!("Failed to run protontricks: {}", e),
+                                                    tfd::MessageBoxIcon::Error,
+                                                );
+                                            }
+                                        } else {
+                                            tfd::message_box_ok(
+                                                "Protontricks",
+                                                "Proton prefix not found",
+                                                tfd::MessageBoxIcon::Error,
+                                            );
+                                        }
+                                    }
+                                    Err(err) => {
+                                        tfd::message_box_ok(
+                                            "Protontricks",
+                                            &format!("Error: {}", err),
+                                            tfd::MessageBoxIcon::Error,
+                                        );
+                                    }
+                                }
+                            }
+
+                            if ui.button("🍷 Winecfg").clicked() {
+                                match steam::get_steam_libraries() {
+                                    Ok(libs) => {
+                                        if let Some(prefix) = steam::find_proton_prefix(game.app_id(), &libs) {
+                                            if let Err(e) = Command::new("winecfg")
+                                                .env("WINEPREFIX", &prefix)
+                                                .spawn()
+                                            {
+                                                tfd::message_box_ok(
+                                                    "winecfg",
+                                                    &format!("Failed to launch winecfg: {}", e),
+                                                    tfd::MessageBoxIcon::Error,
+                                                );
+                                            }
+                                        } else {
+                                            tfd::message_box_ok(
+                                                "winecfg",
+                                                "Proton prefix not found",
+                                                tfd::MessageBoxIcon::Error,
+                                            );
+                                        }
+                                    }
+                                    Err(err) => {
+                                        tfd::message_box_ok(
+                                            "winecfg",
+                                            &format!("Error: {}", err),
+                                            tfd::MessageBoxIcon::Error,
+                                        );
                                     }
                                 }
                             }

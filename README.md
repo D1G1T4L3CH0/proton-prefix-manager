@@ -91,6 +91,18 @@ Clear shader cache:
 proton-prefix-manager clear-cache 620
 ```
 
+Run protontricks on a prefix:
+
+```bash
+proton-prefix-manager protontricks 620
+```
+
+Launch winecfg for a prefix:
+
+```bash
+proton-prefix-manager winecfg 620
+```
+
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.
 
 ## Project goals
