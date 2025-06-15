@@ -1,4 +1,5 @@
 use crate::core::steam;
+use crate::utils::dependencies::command_available;
 
 #[cfg(test)]
 use once_cell::sync::Lazy;
@@ -35,6 +36,11 @@ fn run_protontricks(appid: u32, args: &[String]) -> std::io::Result<()> {
 
 pub fn execute(appid: u32, args: &[String]) {
     println!("🔧 Running protontricks for AppID: {}", appid);
+
+    if !command_available("protontricks") {
+        eprintln!("❌ 'protontricks' is not installed or not found in PATH. Please install it to use this feature.");
+        return;
+    }
 
     match steam::get_steam_libraries() {
         Ok(libraries) => {

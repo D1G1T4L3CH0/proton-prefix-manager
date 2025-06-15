@@ -5,6 +5,8 @@ use crate::core::steam;
 use eframe::egui;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::collections::BTreeMap;
+use crate::utils::dependencies::scan_tools;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -18,6 +20,8 @@ pub struct ProtonPrefixManagerApp {
     dark_mode: bool,
     restore_dialog_open: bool,
     delete_dialog_open: bool,
+    about_open: bool,
+    tool_status: BTreeMap<String, bool>,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -34,6 +38,8 @@ impl Default for ProtonPrefixManagerApp {
             dark_mode: true,
             restore_dialog_open: false,
             delete_dialog_open: false,
+            about_open: false,
+            tool_status: scan_tools(&["protontricks", "winecfg"]),
         }
     }
 }
@@ -232,6 +238,9 @@ impl eframe::App for ProtonPrefixManagerApp {
                         "GitHub",
                         "https://github.com/yourusername/proton-prefix-manager",
                     );
+                    if ui.button("About").clicked() {
+                        self.about_open = true;
+                    }
                 });
             });
         });
@@ -267,9 +276,23 @@ impl eframe::App for ProtonPrefixManagerApp {
                             ui,
                             &mut self.restore_dialog_open,
                             &mut self.delete_dialog_open,
+                            &self.tool_status,
                         );
                     });
             });
         });
+
+        if self.about_open {
+            egui::Window::new("About")
+                .open(&mut self.about_open)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.heading("External Tools");
+                    for (tool, available) in &self.tool_status {
+                        let status = if *available { "✓" } else { "Missing" };
+                        ui.label(format!("{}: {}", tool, status));
+                    }
+                });
+        }
     }
 }

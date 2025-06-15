@@ -2,3 +2,4 @@
 pub mod backup;
 pub mod library;
 pub mod output;
+pub mod dependencies;

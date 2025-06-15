@@ -1,4 +1,5 @@
 use crate::core::steam;
+use crate::utils::dependencies::command_available;
 
 #[cfg(test)]
 use once_cell::sync::Lazy;
@@ -7,10 +8,17 @@ use std::sync::Mutex;
 
 #[cfg(not(test))]
 fn run_winecfg(prefix_path: &std::path::Path) -> std::io::Result<()> {
-    std::process::Command::new("winecfg")
+    let status = std::process::Command::new("winecfg")
         .env("WINEPREFIX", prefix_path)
-        .spawn()
-        .map(|_| ())
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("winecfg exited with status {}", status),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -27,6 +35,11 @@ fn run_winecfg(prefix_path: &std::path::Path) -> std::io::Result<()> {
 
 pub fn execute(appid: u32) {
     println!("🍷 Launching winecfg for AppID: {}", appid);
+
+    if !command_available("winecfg") {
+        eprintln!("❌ 'winecfg' is not installed or not found in PATH. Please install it to use this feature.");
+        return;
+    }
 
     match steam::get_steam_libraries() {
         Ok(libraries) => {
