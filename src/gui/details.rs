@@ -276,7 +276,9 @@ impl<'a> GameDetails<'a> {
                                 });
                             }
                             if !tools.get("protontricks").unwrap_or(&false) {
-                                protontricks_btn.on_hover_text("protontricks not found");
+                                protontricks_btn.on_hover_text(
+                                    "Install `protontricks` to enable this feature.",
+                                );
                             }
 
                             let winecfg_btn = ui.add_enabled(
@@ -290,7 +292,9 @@ impl<'a> GameDetails<'a> {
                                 });
                             }
                             if !tools.get("winecfg").unwrap_or(&false) {
-                                winecfg_btn.on_hover_text("winecfg not found");
+                                winecfg_btn.on_hover_text(
+                                    "Install `winecfg` to enable this feature.",
+                                );
                             }
                         }
 
