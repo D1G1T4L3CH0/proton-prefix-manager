@@ -20,8 +20,8 @@ pub struct ProtonPrefixManagerApp {
     dark_mode: bool,
     restore_dialog_open: bool,
     delete_dialog_open: bool,
-    about_open: bool,
     tool_status: BTreeMap<String, bool>,
+    last_tool_scan: f64,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -38,8 +38,8 @@ impl Default for ProtonPrefixManagerApp {
             dark_mode: true,
             restore_dialog_open: false,
             delete_dialog_open: false,
-            about_open: false,
             tool_status: scan_tools(&["protontricks", "winecfg"]),
+            last_tool_scan: 0.0,
         }
     }
 }
@@ -238,9 +238,6 @@ impl eframe::App for ProtonPrefixManagerApp {
                         "GitHub",
                         "https://github.com/yourusername/proton-prefix-manager",
                     );
-                    if ui.button("About").clicked() {
-                        self.about_open = true;
-                    }
                 });
             });
         });
@@ -282,17 +279,11 @@ impl eframe::App for ProtonPrefixManagerApp {
             });
         });
 
-        if self.about_open {
-            egui::Window::new("About")
-                .open(&mut self.about_open)
-                .resizable(false)
-                .show(ctx, |ui| {
-                    ui.heading("External Tools");
-                    for (tool, available) in &self.tool_status {
-                        let status = if *available { "✓" } else { "Missing" };
-                        ui.label(format!("{}: {}", tool, status));
-                    }
-                });
+        // Periodically rescan for external tools so disabled buttons can update
+        let now = ctx.input(|i| i.time);
+        if now - self.last_tool_scan > 5.0 {
+            self.tool_status = scan_tools(&["protontricks", "winecfg"]);
+            self.last_tool_scan = now;
         }
     }
 }
