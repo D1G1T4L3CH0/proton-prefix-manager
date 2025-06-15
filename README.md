@@ -76,7 +76,7 @@ proton-prefix-manager list-backups 620
 Delete a backup:
 
 ```bash
-proton-prefix-manager delete-backup 620 /path/to/backup
+proton-prefix-manager delete-backup /path/to/backup
 ```
 
 Reset a prefix:

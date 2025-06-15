@@ -1,5 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs as unix_fs;
 
 use chrono::Local;
 use dirs_next;
@@ -17,6 +19,12 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
         let dest_path = dst.join(entry.file_name());
         if file_type.is_dir() {
             copy_dir_recursive(&entry.path(), &dest_path)?;
+        } else if file_type.is_symlink() {
+            let target = fs::read_link(entry.path())?;
+            #[cfg(unix)]
+            unix_fs::symlink(&target, &dest_path)?;
+            #[cfg(not(unix))]
+            fs::copy(target, dest_path)?;
         } else {
             fs::copy(entry.path(), dest_path)?;
         }
