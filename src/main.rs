@@ -88,8 +88,8 @@ fn main() {
         Some(Commands::ListBackups { appid }) => {
             cli::list_backups::execute(*appid);
         }
-        Some(Commands::DeleteBackup { appid, backup }) => {
-            cli::delete_backup::execute(*appid, backup.clone());
+        Some(Commands::DeleteBackup { backup }) => {
+            cli::delete_backup::execute(backup.clone());
         }
         Some(Commands::Reset { appid }) => {
             cli::reset::execute(*appid);

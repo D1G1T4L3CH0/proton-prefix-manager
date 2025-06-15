@@ -91,9 +91,6 @@ pub enum Commands {
 
     /// Delete a specific backup
     DeleteBackup {
-        /// The Steam App ID of the game
-        appid: u32,
-
         /// Path to the backup directory
         backup: PathBuf,
     },
