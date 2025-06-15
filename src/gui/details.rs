@@ -4,6 +4,7 @@ use crate::utils::backup as backup_utils;
 use eframe::egui;
 use std::thread;
 use crate::cli::{protontricks, winecfg};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -175,6 +176,7 @@ impl<'a> GameDetails<'a> {
         ui: &mut egui::Ui,
         restore_dialog_open: &mut bool,
         delete_dialog_open: &mut bool,
+        tools: &BTreeMap<String, bool>,
     ) {
         if let Some(game) = self.game {
             // Game title and AppID in a header section
@@ -263,18 +265,32 @@ impl<'a> GameDetails<'a> {
                                 }
                             }
 
-                            if ui.button("🔧 Protontricks").clicked() {
+                            let protontricks_btn = ui.add_enabled(
+                                *tools.get("protontricks").unwrap_or(&false),
+                                egui::Button::new("🔧 Protontricks"),
+                            );
+                            if protontricks_btn.clicked() {
                                 let appid = game.app_id();
                                 thread::spawn(move || {
                                     protontricks::execute(appid, &[]);
                                 });
                             }
+                            if !tools.get("protontricks").unwrap_or(&false) {
+                                protontricks_btn.on_hover_text("protontricks not found");
+                            }
 
-                            if ui.button("⚙️ winecfg").clicked() {
+                            let winecfg_btn = ui.add_enabled(
+                                *tools.get("winecfg").unwrap_or(&false),
+                                egui::Button::new("⚙️ winecfg"),
+                            );
+                            if winecfg_btn.clicked() {
                                 let appid = game.app_id();
                                 thread::spawn(move || {
                                     winecfg::execute(appid);
                                 });
+                            }
+                            if !tools.get("winecfg").unwrap_or(&false) {
+                                winecfg_btn.on_hover_text("winecfg not found");
                             }
                         }
 
