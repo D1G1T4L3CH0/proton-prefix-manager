@@ -11,8 +11,6 @@ use chrono::NaiveDateTime;
 pub struct GameDetails<'a> {
     game: Option<&'a GameInfo>,
     id: egui::Id, // Add a unique ID for this instance
-    show_restore_dialog: bool,
-    show_delete_dialog: bool,
 }
 
 impl<'a> GameDetails<'a> {
@@ -20,8 +18,6 @@ impl<'a> GameDetails<'a> {
         Self {
             game,
             id: egui::Id::new("game_details"),
-            show_restore_dialog: false,
-            show_delete_dialog: false,
         }
     }
 
@@ -96,7 +92,12 @@ impl<'a> GameDetails<'a> {
         }
     }
 
-    fn restore_window(&mut self, ctx: &egui::Context, game: &GameInfo) {
+    fn restore_window(
+        &mut self,
+        ctx: &egui::Context,
+        game: &GameInfo,
+        open: &mut bool,
+    ) {
         egui::Window::new("Select Backup to Restore")
             .collapsible(false)
             .show(ctx, |ui| {
@@ -119,17 +120,22 @@ impl<'a> GameDetails<'a> {
                                     tfd::MessageBoxIcon::Error,
                                 ),
                             };
-                            self.show_restore_dialog = false;
+                            *open = false;
                         }
                     }
                 }
                 if ui.button("Close").clicked() {
-                    self.show_restore_dialog = false;
+                    *open = false;
                 }
             });
     }
 
-    fn delete_window(&mut self, ctx: &egui::Context, game: &GameInfo) {
+    fn delete_window(
+        &mut self,
+        ctx: &egui::Context,
+        game: &GameInfo,
+        open: &mut bool,
+    ) {
         egui::Window::new("Select Backup to Delete")
             .collapsible(false)
             .show(ctx, |ui| {
@@ -152,17 +158,22 @@ impl<'a> GameDetails<'a> {
                                     tfd::MessageBoxIcon::Error,
                                 ),
                             };
-                            self.show_delete_dialog = false;
+                            *open = false;
                         }
                     }
                 }
                 if ui.button("Close").clicked() {
-                    self.show_delete_dialog = false;
+                    *open = false;
                 }
             });
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui) {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        restore_dialog_open: &mut bool,
+        delete_dialog_open: &mut bool,
+    ) {
         if let Some(game) = self.game {
             // Game title and AppID in a header section
             ui.heading(game.name());
@@ -252,11 +263,11 @@ impl<'a> GameDetails<'a> {
                         }
 
                         if ui.button("♻️ Restore").clicked() {
-                            self.show_restore_dialog = true;
+                            *restore_dialog_open = true;
                         }
 
                         if ui.button("🗑 Delete Backup").clicked() {
-                            self.show_delete_dialog = true;
+                            *delete_dialog_open = true;
                         }
                     });
                 });
@@ -328,12 +339,12 @@ impl<'a> GameDetails<'a> {
                 }
             });
 
-            if self.show_restore_dialog {
-                self.restore_window(ui.ctx(), game);
+            if *restore_dialog_open {
+                self.restore_window(ui.ctx(), game, restore_dialog_open);
             }
 
-            if self.show_delete_dialog {
-                self.delete_window(ui.ctx(), game);
+            if *delete_dialog_open {
+                self.delete_window(ui.ctx(), game, delete_dialog_open);
             }
         } else {
             ui.centered_and_justified(|ui| {

@@ -16,6 +16,8 @@ pub struct ProtonPrefixManagerApp {
     error_message: Option<String>,
     status_message: Option<String>,
     dark_mode: bool,
+    restore_dialog_open: bool,
+    delete_dialog_open: bool,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -30,6 +32,8 @@ impl Default for ProtonPrefixManagerApp {
             error_message: None,
             status_message: Some("Loading...".to_string()),
             dark_mode: true,
+            restore_dialog_open: false,
+            delete_dialog_open: false,
         }
     }
 }
@@ -259,7 +263,11 @@ impl eframe::App for ProtonPrefixManagerApp {
                     .auto_shrink([false; 2])
                     .id_salt("details_panel")
                     .show(ui, |ui| {
-                        GameDetails::new(self.selected_game.as_ref()).show(ui);
+                        GameDetails::new(self.selected_game.as_ref()).show(
+                            ui,
+                            &mut self.restore_dialog_open,
+                            &mut self.delete_dialog_open,
+                        );
                     });
             });
         });
