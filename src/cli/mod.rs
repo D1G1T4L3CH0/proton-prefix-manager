@@ -6,8 +6,10 @@ pub mod clear_cache;
 pub mod delete_backup;
 pub mod list_backups;
 pub mod open;
+pub mod protontricks;
 pub mod prefix;
 pub mod reset;
+pub mod winecfg;
 pub mod restore;
 pub mod search;
 
@@ -103,6 +105,22 @@ pub enum Commands {
 
     /// Clear the shader cache for the given App ID
     ClearCache {
+        /// The Steam App ID of the game
+        appid: u32,
+    },
+
+    /// Run protontricks for the given App ID
+    Protontricks {
+        /// The Steam App ID of the game
+        appid: u32,
+
+        /// Additional arguments for protontricks
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+
+    /// Launch winecfg for the given App ID
+    Winecfg {
         /// The Steam App ID of the game
         appid: u32,
     },
