@@ -277,7 +277,7 @@ impl<'a> GameDetails<'a> {
                             }
                             if !tools.get("protontricks").unwrap_or(&false) {
                                 protontricks_btn.on_hover_text(
-                                    "Install `protontricks` to enable this feature.",
+                                    "This feature requires `protontricks`. Please install it using your package manager.",
                                 );
                             }
 
@@ -293,7 +293,7 @@ impl<'a> GameDetails<'a> {
                             }
                             if !tools.get("winecfg").unwrap_or(&false) {
                                 winecfg_btn.on_hover_text(
-                                    "Install `winecfg` to enable this feature.",
+                                    "`winecfg` is not installed or not found in PATH. Please install Wine.",
                                 );
                             }
                         }
