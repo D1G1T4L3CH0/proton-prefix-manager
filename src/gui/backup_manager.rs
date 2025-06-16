@@ -1,0 +1,188 @@
+use crate::core::{models::GameInfo, steam};
+use crate::utils::backup as backup_utils;
+use eframe::egui;
+use std::fs;
+use std::path::{Path, PathBuf};
+use tinyfiledialogs as tfd;
+
+pub struct BackupEntry {
+    pub app_id: u32,
+    pub game_name: String,
+    pub path: PathBuf,
+    pub size: u64,
+    pub created: String,
+    pub selected: bool,
+}
+
+pub struct BackupManagerWindow {
+    entries: Vec<BackupEntry>,
+    confirm_delete_all: bool,
+}
+
+impl BackupManagerWindow {
+    pub fn new() -> Self {
+        Self { entries: Vec::new(), confirm_delete_all: false }
+    }
+
+    fn dir_size(path: &Path) -> std::io::Result<u64> {
+        let mut size = 0;
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let md = entry.metadata()?;
+            if md.is_dir() {
+                size += Self::dir_size(&entry.path())?;
+            } else {
+                size += md.len();
+            }
+        }
+        Ok(size)
+    }
+
+    fn format_size(size: u64) -> String {
+        const KB: f64 = 1024.0;
+        const MB: f64 = KB * 1024.0;
+        const GB: f64 = MB * 1024.0;
+        let f = size as f64;
+        if f >= GB {
+            format!("{:.1} GB", f / GB)
+        } else if f >= MB {
+            format!("{:.1} MB", f / MB)
+        } else if f >= KB {
+            format!("{:.1} KB", f / KB)
+        } else {
+            format!("{} B", size)
+        }
+    }
+
+    fn refresh(&mut self, games: Option<&[GameInfo]>) {
+        self.entries.clear();
+        let all = backup_utils::list_all_backups();
+        for (appid, backups) in all {
+            let game_name = games
+                .and_then(|g| g.iter().find(|x| x.app_id() == appid))
+                .map(|g| g.name().to_string())
+                .unwrap_or_else(|| format!("App {}", appid));
+            for b in backups {
+                let size = Self::dir_size(&b).unwrap_or(0);
+                let created = backup_utils::format_backup_name(&b);
+                self.entries.push(BackupEntry {
+                    app_id: appid,
+                    game_name: game_name.clone(),
+                    path: b,
+                    size,
+                    created,
+                    selected: false,
+                });
+            }
+        }
+    }
+
+    fn prefix_for(app_id: u32, games: Option<&[GameInfo]>) -> Option<PathBuf> {
+        if let Some(g) = games.and_then(|g| g.iter().find(|x| x.app_id() == app_id)) {
+            return Some(g.prefix_path().to_path_buf());
+        }
+        if let Ok(libs) = steam::get_steam_libraries() {
+            return steam::find_proton_prefix(app_id, &libs);
+        }
+        None
+    }
+
+    fn delete_selected(&mut self) {
+        let paths: Vec<PathBuf> = self
+            .entries
+            .iter()
+            .filter(|e| e.selected)
+            .map(|e| e.path.clone())
+            .collect();
+        for p in paths {
+            let _ = backup_utils::delete_backup(&p);
+        }
+    }
+
+    fn delete_all(&mut self) {
+        for e in &self.entries {
+            let _ = backup_utils::delete_backup(&e.path);
+        }
+    }
+
+    fn has_selection(&self) -> bool {
+        self.entries.iter().any(|e| e.selected)
+    }
+
+    pub fn show(&mut self, ctx: &egui::Context, open: &mut bool, games: Option<&[GameInfo]>) {
+        if !*open {
+            return;
+        }
+        self.refresh(games);
+        egui::Window::new("Prefix Backups")
+            .open(open)
+            .vscroll(true)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    let delete_enabled = self.has_selection();
+                    if ui.add_enabled(delete_enabled, egui::Button::new("Delete Selected")).clicked() {
+                        if tfd::message_box_yes_no(
+                            "Confirm",
+                            "Delete selected backups?",
+                            tfd::MessageBoxIcon::Warning,
+                            tfd::YesNo::No,
+                        ) == tfd::YesNo::Yes
+                        {
+                            self.delete_selected();
+                        }
+                    }
+                    if ui.button("Delete All Backups").clicked() {
+                        self.confirm_delete_all = true;
+                    }
+                });
+
+                egui::Grid::new("backups_grid")
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.heading("Game Name");
+                        ui.heading("App ID");
+                        ui.heading("Backup");
+                        ui.heading("Size");
+                        ui.heading("Actions");
+                        ui.end_row();
+
+                        for entry in &mut self.entries {
+                            ui.label(&entry.game_name);
+                            ui.label(entry.app_id.to_string());
+                            ui.label(&entry.created);
+                            ui.label(Self::format_size(entry.size));
+                            ui.horizontal(|ui| {
+                                if ui.button("Restore").clicked() {
+                                    if let Some(prefix) = Self::prefix_for(entry.app_id, games) {
+                                        match backup_utils::restore_prefix(&entry.path, &prefix) {
+                                            Ok(_) => tfd::message_box_ok("Restore", "Prefix restored", tfd::MessageBoxIcon::Info),
+                                            Err(e) => tfd::message_box_ok("Restore failed", &format!("{}", e), tfd::MessageBoxIcon::Error),
+                                        };
+                                    } else {
+                                        tfd::message_box_ok("Restore failed", "Prefix path not found", tfd::MessageBoxIcon::Error);
+                                    }
+                                }
+                                if ui.button("Delete").clicked() {
+                                    let _ = backup_utils::delete_backup(&entry.path);
+                                }
+                            });
+                            ui.checkbox(&mut entry.selected, "");
+                            ui.end_row();
+                        }
+                    });
+
+                if self.confirm_delete_all {
+                    if tfd::message_box_yes_no(
+                        "Confirm",
+                        "Are you sure you want to delete all backups? This action cannot be undone.",
+                        tfd::MessageBoxIcon::Warning,
+                        tfd::YesNo::No,
+                    ) == tfd::YesNo::Yes
+                    {
+                        self.delete_all();
+                    }
+                    self.confirm_delete_all = false;
+                }
+            });
+    }
+}
