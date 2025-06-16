@@ -464,10 +464,13 @@ impl<'a> GameDetails<'a> {
             });
 
             // Game Settings section
-            let mut cfg = match Self::load_game_config(game.app_id()) {
-                Ok(c) => c,
-                Err(_) => GameConfig::default(),
-            };
+            let cfg_id = self.id.with("cfg").with(game.app_id());
+            let mut cfg = ui.data_mut(|d| {
+                d.get_persisted::<GameConfig>(cfg_id)
+                    .unwrap_or_else(|| {
+                        Self::load_game_config(game.app_id()).unwrap_or_default()
+                    })
+            });
             let has_custom = !cfg.launch_options.is_empty()
                 || cfg.proton.is_some()
                 || !cfg.auto_update
@@ -520,6 +523,8 @@ impl<'a> GameDetails<'a> {
                 })
                 .header_response
                 .on_hover_text("Manage game specific options stored in appmanifest");
+
+            ui.data_mut(|d| d.insert_persisted(cfg_id, cfg.clone()));
 
             ui.add_space(8.0);
 
