@@ -21,3 +21,10 @@ pub fn update_or_insert(contents: &str, key: &str, value: &str) -> String {
         }
     }
 }
+
+/// Retrieve the value for a key from a Steam appmanifest file contents.
+pub fn get_value(contents: &str, key: &str) -> Option<String> {
+    let re = Regex::new(&format!(r#"\"{}\"\s+\"([^\"]*)\""#, regex::escape(key))).ok()?;
+    re.captures(contents)
+        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
+}
