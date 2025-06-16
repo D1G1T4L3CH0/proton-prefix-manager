@@ -12,6 +12,7 @@ pub mod reset;
 pub mod winecfg;
 pub mod restore;
 pub mod search;
+pub mod config;
 
 /// Proton Prefix Manager CLI
 ///
@@ -123,5 +124,27 @@ pub enum Commands {
     Winecfg {
         /// The Steam App ID of the game
         appid: u32,
+    },
+
+    /// Edit game configuration in the manifest
+    Config {
+        /// The Steam App ID of the game
+        appid: u32,
+
+        /// Set custom launch options
+        #[arg(long)]
+        launch: Option<String>,
+
+        /// Force a specific Proton version
+        #[arg(long)]
+        proton: Option<String>,
+
+        /// Enable or disable Steam Cloud
+        #[arg(long)]
+        cloud: Option<bool>,
+
+        /// Auto update behavior
+        #[arg(long)]
+        auto_update: Option<String>,
     },
 }
