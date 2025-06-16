@@ -6,8 +6,10 @@ use eframe::egui;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use crate::utils::dependencies::scan_tools;
 use crate::utils::terminal;
+use super::details::GameConfig;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -23,6 +25,7 @@ pub struct ProtonPrefixManagerApp {
     delete_dialog_open: bool,
     tool_status: BTreeMap<String, bool>,
     last_tool_scan: f64,
+    config_cache: HashMap<u32, GameConfig>,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -45,6 +48,7 @@ impl Default for ProtonPrefixManagerApp {
                 map
             },
             last_tool_scan: 0.0,
+            config_cache: HashMap::new(),
         }
     }
 }
@@ -279,6 +283,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                             &mut self.restore_dialog_open,
                             &mut self.delete_dialog_open,
                             &self.tool_status,
+                            &mut self.config_cache,
                         );
                     });
             });

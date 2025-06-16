@@ -6,6 +6,7 @@ use std::thread;
 use crate::cli::{protontricks, winecfg};
 use crate::utils::terminal;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -20,7 +21,7 @@ pub struct GameDetails<'a> {
 }
 
 #[derive(Clone, Default)]
-struct GameConfig {
+pub struct GameConfig {
     proton: Option<String>,
     launch_options: String,
     auto_update: bool,
@@ -257,6 +258,7 @@ impl<'a> GameDetails<'a> {
         restore_dialog_open: &mut bool,
         delete_dialog_open: &mut bool,
         tools: &BTreeMap<String, bool>,
+        configs: &mut HashMap<u32, GameConfig>,
     ) {
         if let Some(game) = self.game {
             // Game title and AppID in a header section
@@ -464,13 +466,9 @@ impl<'a> GameDetails<'a> {
             });
 
             // Game Settings section
-            let cfg_id = self.id.with("cfg").with(game.app_id());
-            let mut cfg = ui.data_mut(|d| {
-                d.get_persisted::<GameConfig>(cfg_id)
-                    .unwrap_or_else(|| {
-                        Self::load_game_config(game.app_id()).unwrap_or_default()
-                    })
-            });
+            let cfg = configs
+                .entry(game.app_id())
+                .or_insert_with(|| Self::load_game_config(game.app_id()).unwrap_or_default());
             let has_custom = !cfg.launch_options.is_empty()
                 || cfg.proton.is_some()
                 || !cfg.auto_update
@@ -508,7 +506,7 @@ impl<'a> GameDetails<'a> {
                         lbl.on_hover_text("Sync save data via Steam Cloud");
                     });
                     if ui.button("Save").clicked() {
-                        match Self::save_game_config(game.app_id(), &cfg) {
+                        match Self::save_game_config(game.app_id(), cfg) {
                             Ok(_) => tfd::message_box_ok(
                                 "Config",
                                 "Settings saved",
@@ -524,8 +522,6 @@ impl<'a> GameDetails<'a> {
                 })
                 .header_response
                 .on_hover_text("Manage game specific options stored in appmanifest");
-
-            ui.data_mut(|d| d.insert_persisted(cfg_id, cfg.clone()));
 
             ui.add_space(8.0);
 
