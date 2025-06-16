@@ -248,16 +248,16 @@ impl<'a> GameDetails<'a> {
                                 }
                             }
 
-                            if ui.button("🧹 Clear Cache").clicked() {
+                            if ui.button("🧹 Clear Shader Cache").clicked() {
                                 if let Ok(libs) = steam::get_steam_libraries() {
                                     match backup_utils::clear_shader_cache(game.app_id(), &libs) {
                                         Ok(_) => tfd::message_box_ok(
-                                            "Cache",
+                                            "Shader Cache",
                                             "Shader cache cleared",
                                             tfd::MessageBoxIcon::Info,
                                         ),
                                         Err(e) => tfd::message_box_ok(
-                                            "Cache failed",
+                                            "Shader Cache failed",
                                             &format!("{}", e),
                                             tfd::MessageBoxIcon::Error,
                                         ),
