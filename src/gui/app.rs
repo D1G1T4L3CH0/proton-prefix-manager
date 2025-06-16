@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::collections::BTreeMap;
 use crate::utils::dependencies::scan_tools;
+use crate::utils::terminal;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -38,7 +39,11 @@ impl Default for ProtonPrefixManagerApp {
             dark_mode: true,
             restore_dialog_open: false,
             delete_dialog_open: false,
-            tool_status: scan_tools(&["protontricks", "winecfg"]),
+            tool_status: {
+                let mut map = scan_tools(&["protontricks", "winecfg"]);
+                map.insert("terminal".to_string(), terminal::terminal_available());
+                map
+            },
             last_tool_scan: 0.0,
         }
     }
@@ -283,6 +288,7 @@ impl eframe::App for ProtonPrefixManagerApp {
         let now = ctx.input(|i| i.time);
         if now - self.last_tool_scan > 5.0 {
             self.tool_status = scan_tools(&["protontricks", "winecfg"]);
+            self.tool_status.insert("terminal".to_string(), terminal::terminal_available());
             self.last_tool_scan = now;
         }
     }
