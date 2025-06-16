@@ -4,6 +4,7 @@ use crate::utils::backup as backup_utils;
 use eframe::egui;
 use std::thread;
 use crate::cli::{protontricks, winecfg};
+use crate::utils::terminal;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
@@ -379,6 +380,28 @@ impl<'a> GameDetails<'a> {
                             if !tools.get("winecfg").unwrap_or(&false) {
                                 winecfg_btn.on_hover_text(
                                     "`winecfg` is not installed or not found in PATH. Please install Wine.",
+                                );
+                            }
+
+                            let terminal_btn = ui.add_enabled(
+                                *tools.get("terminal").unwrap_or(&false),
+                                egui::Button::new("🖥 Open Terminal"),
+                            );
+                            if terminal_btn.clicked() {
+                                let path = game.prefix_path().to_path_buf();
+                                thread::spawn(move || {
+                                    if let Err(e) = terminal::open_terminal(&path) {
+                                        eprintln!("Failed to open terminal: {}", e);
+                                    }
+                                });
+                            }
+                            if *tools.get("terminal").unwrap_or(&false) {
+                                terminal_btn.on_hover_text(
+                                    "Opens a terminal with WINEPREFIX set to this game's prefix.",
+                                );
+                            } else {
+                                terminal_btn.on_hover_text(
+                                    "No terminal emulator found on system.",
                                 );
                             }
                         }
