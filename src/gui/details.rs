@@ -191,29 +191,35 @@ impl<'a> GameDetails<'a> {
             egui::CollapsingHeader::new("Prefix Information")
                 .default_open(true)
                 .show(ui, |ui| {
-                    self.show_path(ui, "Prefix Path:", game.prefix_path());
+                    if self.prefix_available() {
+                        self.show_path(ui, "Prefix Path:", game.prefix_path());
 
-                    if let Ok(metadata) = fs::metadata(game.prefix_path()) {
-                        if let Ok(modified) = metadata.modified() {
-                            if let Ok(time) = modified.duration_since(UNIX_EPOCH) {
-                                let datetime = chrono::DateTime::<chrono::Local>::from(
-                                    SystemTime::UNIX_EPOCH + time,
-                                );
-                                egui::Grid::new("modified_time")
-                                    .num_columns(2)
-                                    .spacing([8.0, 4.0])
-                                    .show(ui, |ui| {
-                                        ui.label("Last Modified:");
-                                        ui.monospace(datetime.format("%Y-%m-%d %H:%M").to_string());
-                                        ui.end_row();
-                                    });
+                        if let Ok(metadata) = fs::metadata(game.prefix_path()) {
+                            if let Ok(modified) = metadata.modified() {
+                                if let Ok(time) = modified.duration_since(UNIX_EPOCH) {
+                                    let datetime = chrono::DateTime::<chrono::Local>::from(
+                                        SystemTime::UNIX_EPOCH + time,
+                                    );
+                                    egui::Grid::new("modified_time")
+                                        .num_columns(2)
+                                        .spacing([8.0, 4.0])
+                                        .show(ui, |ui| {
+                                            ui.label("Last Modified:");
+                                            ui.monospace(
+                                                datetime.format("%Y-%m-%d %H:%M").to_string(),
+                                            );
+                                            ui.end_row();
+                                        });
+                                }
                             }
                         }
-                    }
 
-                    let drive_c = game.prefix_path().join("pfx/drive_c");
-                    if drive_c.exists() {
-                        self.show_path(ui, "Drive C:", &drive_c);
+                        let drive_c = game.prefix_path().join("pfx/drive_c");
+                        if drive_c.exists() {
+                            self.show_path(ui, "Drive C:", &drive_c);
+                        }
+                    } else {
+                        ui.label("No prefix currently exists for this game.");
                     }
 
                     ui.horizontal(|ui| {
