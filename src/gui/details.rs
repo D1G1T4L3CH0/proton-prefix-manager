@@ -12,6 +12,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::io;
 use crate::utils::manifest as manifest_utils;
+use crate::utils::user_config;
 use tinyfiledialogs as tfd;
 use chrono::NaiveDateTime;
 use egui::menu;
@@ -223,7 +224,9 @@ impl<'a> GameDetails<'a> {
             if manifest.exists() {
                 let contents = fs::read_to_string(&manifest)?;
                 let proton = manifest_utils::get_value(&contents, "CompatToolOverride");
-                let launch = manifest_utils::get_value(&contents, "LaunchOptions").unwrap_or_default();
+                let launch = user_config::get_launch_options(app_id)
+                    .or_else(|| manifest_utils::get_value(&contents, "LaunchOptions"))
+                    .unwrap_or_default();
                 let cloud = manifest_utils::get_value(&contents, "AllowCloudSaves").unwrap_or_else(|| "1".to_string()) == "1";
                 let auto = manifest_utils::get_value(&contents, "AutoUpdateBehavior").unwrap_or_else(|| "0".to_string()) == "0";
                 return Ok(GameConfig {
@@ -247,6 +250,7 @@ impl<'a> GameDetails<'a> {
             if manifest.exists() {
                 let mut contents = fs::read_to_string(&manifest)?;
                 contents = manifest_utils::update_or_insert(&contents, "LaunchOptions", &cfg.launch_options);
+                let _ = user_config::set_launch_options(app_id, &cfg.launch_options);
                 if let Some(p) = &cfg.proton {
                     contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", p);
                 }
