@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use crate::utils::dependencies::scan_tools;
 use crate::utils::terminal;
 use super::details::GameConfig;
+use super::backup_manager::BackupManagerWindow;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -26,6 +27,8 @@ pub struct ProtonPrefixManagerApp {
     tool_status: BTreeMap<String, bool>,
     last_tool_scan: f64,
     config_cache: HashMap<u32, GameConfig>,
+    show_backup_manager: bool,
+    backup_manager: BackupManagerWindow,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -49,6 +52,8 @@ impl Default for ProtonPrefixManagerApp {
             },
             last_tool_scan: 0.0,
             config_cache: HashMap::new(),
+            show_backup_manager: false,
+            backup_manager: BackupManagerWindow::new(),
         }
     }
 }
@@ -199,6 +204,9 @@ impl eframe::App for ProtonPrefixManagerApp {
                     if ui.button(if self.dark_mode { "☀" } else { "🌙" }).clicked() {
                         self.toggle_theme(ctx);
                     }
+                    if ui.button("Manage Backups").on_hover_text("View and manage backups for all games.").clicked() {
+                        self.show_backup_manager = true;
+                    }
                 });
             });
 
@@ -288,6 +296,14 @@ impl eframe::App for ProtonPrefixManagerApp {
                     });
             });
         });
+
+        if let Ok(games) = self.installed_games.lock() {
+            self.backup_manager
+                .show(ctx, &mut self.show_backup_manager, Some(&games));
+        } else {
+            self.backup_manager
+                .show(ctx, &mut self.show_backup_manager, None);
+        }
 
         // Periodically rescan for external tools so disabled buttons can update
         let now = ctx.input(|i| i.time);

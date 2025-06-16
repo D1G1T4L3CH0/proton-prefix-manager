@@ -13,7 +13,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::io;
 use crate::utils::manifest as manifest_utils;
 use tinyfiledialogs as tfd;
-use chrono::NaiveDateTime;
 use egui::menu;
 
 pub struct GameDetails<'a> {
@@ -202,16 +201,6 @@ impl<'a> GameDetails<'a> {
         false
     }
 
-    fn format_backup_name(path: &Path) -> String {
-        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if let Ok(dt) = NaiveDateTime::parse_from_str(name, "%Y%m%d%H%M%S") {
-                return dt.format("%Y-%m-%d %H:%M:%S").to_string();
-            }
-            name.to_string()
-        } else {
-            path.display().to_string()
-        }
-    }
 
     fn load_game_config(app_id: u32) -> io::Result<GameConfig> {
         let libraries = steam::get_steam_libraries()
@@ -296,7 +285,7 @@ impl<'a> GameDetails<'a> {
                     ui.label("No backups found");
                 } else {
                     for backup in backups {
-                        let label = Self::format_backup_name(&backup);
+                        let label = backup_utils::format_backup_name(&backup);
                         if ui.button(label).clicked() {
                             match backup_utils::restore_prefix(&backup, game.prefix_path()) {
                                 Ok(_) => tfd::message_box_ok(
@@ -334,7 +323,7 @@ impl<'a> GameDetails<'a> {
                     ui.label("No backups found");
                 } else {
                     for backup in backups {
-                        let label = Self::format_backup_name(&backup);
+                        let label = backup_utils::format_backup_name(&backup);
                         if ui.button(label).clicked() {
                             match backup_utils::delete_backup(&backup) {
                                 Ok(_) => tfd::message_box_ok(

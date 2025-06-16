@@ -6,6 +6,8 @@ use std::os::unix::fs as unix_fs;
 use chrono::Local;
 use dirs_next;
 
+use std::collections::BTreeMap;
+
 use crate::core::models::SteamLibrary;
 use crate::error::{Error, Result};
 
@@ -80,6 +82,40 @@ pub fn list_backups(appid: u32) -> Vec<PathBuf> {
         list
     } else {
         Vec::new()
+    }
+}
+
+/// List backups for all applications.
+pub fn list_all_backups() -> BTreeMap<u32, Vec<PathBuf>> {
+    let mut map = BTreeMap::new();
+    let root = backup_root();
+    if let Ok(app_dirs) = fs::read_dir(root) {
+        for app_dir in app_dirs.flatten() {
+            let path = app_dir.path();
+            if path.is_dir() {
+                if let Some(appid_str) = app_dir.file_name().to_str() {
+                    if let Ok(appid) = appid_str.parse::<u32>() {
+                        let backups = list_backups(appid);
+                        if !backups.is_empty() {
+                            map.insert(appid, backups);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    map
+}
+
+/// Format a backup directory name (usually a timestamp) into a human readable string.
+pub fn format_backup_name(path: &Path) -> String {
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(name, "%Y%m%d%H%M%S") {
+            return dt.format("%Y-%m-%d %H:%M:%S").to_string();
+        }
+        name.to_string()
+    } else {
+        path.display().to_string()
     }
 }
 
