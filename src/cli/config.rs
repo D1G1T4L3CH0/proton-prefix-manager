@@ -1,5 +1,6 @@
 use crate::core::steam;
 use crate::utils::manifest as manifest_utils;
+use crate::utils::user_config;
 use std::fs;
 
 pub fn execute(
@@ -25,6 +26,7 @@ pub fn execute(
                         Ok(mut contents) => {
                             if let Some(v) = launch {
                                 contents = manifest_utils::update_or_insert(&contents, "LaunchOptions", &v);
+                                let _ = user_config::set_launch_options(appid, &v);
                             }
                             if let Some(v) = proton {
                                 contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", &v);
