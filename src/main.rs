@@ -103,6 +103,21 @@ fn main() {
         Some(Commands::Winecfg { appid }) => {
             cli::winecfg::execute(*appid);
         }
+        Some(Commands::Config {
+            appid,
+            launch,
+            proton,
+            cloud,
+            auto_update,
+        }) => {
+            cli::config::execute(
+                *appid,
+                launch.clone(),
+                proton.clone(),
+                *cloud,
+                auto_update.clone(),
+            );
+        }
         None => {
             log::info!("Launching GUI...");
             let native_options = NativeOptions::default();
