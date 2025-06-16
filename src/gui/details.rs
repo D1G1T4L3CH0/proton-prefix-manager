@@ -8,12 +8,22 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::io;
+use crate::utils::manifest as manifest_utils;
 use tinyfiledialogs as tfd;
 use chrono::NaiveDateTime;
 
 pub struct GameDetails<'a> {
     game: Option<&'a GameInfo>,
     id: egui::Id, // Add a unique ID for this instance
+}
+
+#[derive(Clone, Default)]
+struct GameConfig {
+    proton: Option<String>,
+    launch_options: String,
+    auto_update: bool,
+    cloud_sync: bool,
 }
 
 impl<'a> GameDetails<'a> {
@@ -93,6 +103,75 @@ impl<'a> GameDetails<'a> {
         } else {
             path.display().to_string()
         }
+    }
+
+    fn load_game_config(app_id: u32) -> io::Result<GameConfig> {
+        let libraries = steam::get_steam_libraries()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        for lib in libraries {
+            let manifest = lib
+                .steamapps_path()
+                .join(format!("appmanifest_{}.acf", app_id));
+            if manifest.exists() {
+                let contents = fs::read_to_string(&manifest)?;
+                let proton = manifest_utils::get_value(&contents, "CompatToolOverride");
+                let launch = manifest_utils::get_value(&contents, "LaunchOptions").unwrap_or_default();
+                let cloud = manifest_utils::get_value(&contents, "AllowCloudSaves").unwrap_or_else(|| "1".to_string()) == "1";
+                let auto = manifest_utils::get_value(&contents, "AutoUpdateBehavior").unwrap_or_else(|| "0".to_string()) == "0";
+                return Ok(GameConfig {
+                    proton,
+                    launch_options: launch,
+                    cloud_sync: cloud,
+                    auto_update: auto,
+                });
+            }
+        }
+        Err(io::Error::new(io::ErrorKind::NotFound, "manifest not found"))
+    }
+
+    fn save_game_config(app_id: u32, cfg: &GameConfig) -> io::Result<()> {
+        let libraries = steam::get_steam_libraries()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        for lib in libraries {
+            let manifest = lib
+                .steamapps_path()
+                .join(format!("appmanifest_{}.acf", app_id));
+            if manifest.exists() {
+                let mut contents = fs::read_to_string(&manifest)?;
+                contents = manifest_utils::update_or_insert(&contents, "LaunchOptions", &cfg.launch_options);
+                if let Some(p) = &cfg.proton {
+                    contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", p);
+                }
+                let cloud_val = if cfg.cloud_sync { "1" } else { "0" };
+                contents = manifest_utils::update_or_insert(&contents, "AllowCloudSaves", cloud_val);
+                let auto_val = if cfg.auto_update { "0" } else { "1" };
+                contents = manifest_utils::update_or_insert(&contents, "AutoUpdateBehavior", auto_val);
+                fs::write(&manifest, contents)?;
+                return Ok(());
+            }
+        }
+        Err(io::Error::new(io::ErrorKind::NotFound, "manifest not found"))
+    }
+
+    fn list_proton_versions() -> Vec<String> {
+        let mut versions = Vec::new();
+        if let Ok(libraries) = steam::get_steam_libraries() {
+            for lib in libraries {
+                let common = lib.join("steamapps/common");
+                if let Ok(entries) = fs::read_dir(&common) {
+                    for e in entries.flatten() {
+                        if let Ok(name) = e.file_name().into_string() {
+                            if name.to_lowercase().starts_with("proton") {
+                                versions.push(name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        versions.sort();
+        versions.dedup();
+        versions
     }
 
     fn restore_window(
@@ -356,10 +435,68 @@ impl<'a> GameDetails<'a> {
                         });
                     }
 
-                    if let Some(install_dir) = find_install_dir(game.app_id()) {
-                        self.show_path(ui, "Install Directory:", &install_dir);
+                if let Some(install_dir) = find_install_dir(game.app_id()) {
+                    self.show_path(ui, "Install Directory:", &install_dir);
+                }
+            });
+
+            // Game Settings section
+            let mut cfg = match Self::load_game_config(game.app_id()) {
+                Ok(c) => c,
+                Err(_) => GameConfig::default(),
+            };
+            let has_custom = !cfg.launch_options.is_empty()
+                || cfg.proton.is_some()
+                || !cfg.auto_update
+                || !cfg.cloud_sync;
+            let header_label = if has_custom { "⚙ Game Settings *" } else { "⚙ Game Settings" };
+            egui::CollapsingHeader::new(header_label)
+                .default_open(has_custom)
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Proton Version:");
+                        let versions = Self::list_proton_versions();
+                        egui::ComboBox::from_id_source("proton_version")
+                            .selected_text(cfg.proton.clone().unwrap_or_else(|| "Default".to_string()))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut cfg.proton, None, "Default");
+                                for v in versions {
+                                    ui.selectable_value(&mut cfg.proton, Some(v.clone()), v);
+                                }
+                            });
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Launch Options:");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut cfg.launch_options)
+                                .hint_text("e.g. PROTON_LOG=1"),
+                        );
+                    });
+                    ui.horizontal(|ui| {
+                        let lbl = ui.checkbox(&mut cfg.auto_update, "Enable auto-update");
+                        lbl.on_hover_text("Toggle automatic updates for this game");
+                    });
+                    ui.horizontal(|ui| {
+                        let lbl = ui.checkbox(&mut cfg.cloud_sync, "Enable Steam Cloud");
+                        lbl.on_hover_text("Sync save data via Steam Cloud");
+                    });
+                    if ui.button("Save").clicked() {
+                        match Self::save_game_config(game.app_id(), &cfg) {
+                            Ok(_) => tfd::message_box_ok(
+                                "Config",
+                                "Settings saved",
+                                tfd::MessageBoxIcon::Info,
+                            ),
+                            Err(e) => tfd::message_box_ok(
+                                "Save failed",
+                                &format!("{}", e),
+                                tfd::MessageBoxIcon::Error,
+                            ),
+                        };
                     }
-                });
+                })
+                .header_response
+                .on_hover_text("Manage game specific options stored in appmanifest");
 
             ui.add_space(8.0);
 
