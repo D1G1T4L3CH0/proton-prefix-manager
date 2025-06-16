@@ -14,6 +14,7 @@ use std::io;
 use crate::utils::manifest as manifest_utils;
 use tinyfiledialogs as tfd;
 use chrono::NaiveDateTime;
+use egui::menu;
 
 pub struct GameDetails<'a> {
     game: Option<&'a GameInfo>,
@@ -82,6 +83,111 @@ impl<'a> GameDetails<'a> {
 
                 ui.end_row();
             });
+    }
+
+    fn game_title_bar(&self, ui: &mut egui::Ui, game: &GameInfo) {
+        ui.horizontal(|ui| {
+            ui.heading(game.name());
+            ui.separator();
+            ui.label(format!("App ID: {}", game.app_id()));
+        });
+        ui.add_space(8.0);
+    }
+
+    fn prefix_tools_menu(
+        &self,
+        ui: &mut egui::Ui,
+        game: &GameInfo,
+        restore_dialog_open: &mut bool,
+        delete_dialog_open: &mut bool,
+        tools: &BTreeMap<String, bool>,
+    ) {
+        menu::menu_button(ui, "Prefix Tools ▾", |ui| {
+            if ui.button("Backup Prefix").clicked() {
+                match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
+                    Ok(p) => tfd::message_box_ok(
+                        "Backup",
+                        &format!("Backup created at {}", p.display()),
+                        tfd::MessageBoxIcon::Info,
+                    ),
+                    Err(e) => tfd::message_box_ok(
+                        "Backup failed",
+                        &format!("{}", e),
+                        tfd::MessageBoxIcon::Error,
+                    ),
+                }
+                ui.close_menu();
+            }
+            if ui.button("Restore Backup").clicked() {
+                *restore_dialog_open = true;
+                ui.close_menu();
+            }
+            if ui.button("Delete Backup").clicked() {
+                *delete_dialog_open = true;
+                ui.close_menu();
+            }
+            if ui.button("Reset Prefix").clicked() {
+                match backup_utils::reset_prefix(game.prefix_path()) {
+                    Ok(_) => tfd::message_box_ok(
+                        "Reset",
+                        "Prefix deleted",
+                        tfd::MessageBoxIcon::Info,
+                    ),
+                    Err(e) => tfd::message_box_ok(
+                        "Reset failed",
+                        &format!("{}", e),
+                        tfd::MessageBoxIcon::Error,
+                    ),
+                }
+                ui.close_menu();
+            }
+            if ui.button("Clear Shader Cache").clicked() {
+                if let Ok(libs) = steam::get_steam_libraries() {
+                    match backup_utils::clear_shader_cache(game.app_id(), &libs) {
+                        Ok(_) => tfd::message_box_ok(
+                            "Shader Cache",
+                            "Shader cache cleared",
+                            tfd::MessageBoxIcon::Info,
+                        ),
+                        Err(e) => tfd::message_box_ok(
+                            "Shader Cache failed",
+                            &format!("{}", e),
+                            tfd::MessageBoxIcon::Error,
+                        ),
+                    }
+                }
+                ui.close_menu();
+            }
+            if ui.add_enabled(*tools.get("terminal").unwrap_or(&false), egui::Button::new("Open Terminal")).clicked() {
+                let path = game.prefix_path().to_path_buf();
+                thread::spawn(move || {
+                    if let Err(e) = terminal::open_terminal(&path) {
+                        eprintln!("Failed to open terminal: {}", e);
+                    }
+                });
+                ui.close_menu();
+            }
+            if ui.button("Open Prefix Folder").clicked() {
+                let _ = open::that(game.prefix_path());
+                ui.close_menu();
+            }
+            if ui.add_enabled(*tools.get("winecfg").unwrap_or(&false), egui::Button::new("Launch winecfg")).clicked() {
+                let appid = game.app_id();
+                thread::spawn(move || {
+                    winecfg::execute(appid);
+                });
+                ui.close_menu();
+            }
+            if ui.add_enabled(*tools.get("protontricks").unwrap_or(&false), egui::Button::new("Launch protontricks")).clicked() {
+                let appid = game.app_id();
+                thread::spawn(move || {
+                    protontricks::execute(appid, &[]);
+                });
+                ui.close_menu();
+            }
+        })
+        .response
+        .on_hover_text("Tools for managing this game's Proton prefix");
     }
 
     fn prefix_available(&self) -> bool {
@@ -261,13 +367,7 @@ impl<'a> GameDetails<'a> {
         configs: &mut HashMap<u32, GameConfig>,
     ) {
         if let Some(game) = self.game {
-            // Game title and AppID in a header section
-            ui.heading(game.name());
-            ui.horizontal(|ui| {
-                ui.label("App ID:");
-                ui.monospace(game.app_id().to_string());
-            });
-            ui.add_space(12.0);
+            self.game_title_bar(ui, game);
 
             // Prefix Information
             egui::CollapsingHeader::new("Prefix Information")
@@ -305,116 +405,7 @@ impl<'a> GameDetails<'a> {
                     }
 
                     ui.horizontal(|ui| {
-                        if self.prefix_available() {
-                            if ui.button("📦 Backup").clicked() {
-                                match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
-                                    Ok(p) => tfd::message_box_ok(
-                                        "Backup",
-                                        &format!("Backup created at {}", p.display()),
-                                        tfd::MessageBoxIcon::Info,
-                                    ),
-                                    Err(e) => tfd::message_box_ok(
-                                        "Backup failed",
-                                        &format!("{}", e),
-                                        tfd::MessageBoxIcon::Error,
-                                    ),
-                                }
-                            }
-
-                            if ui.button("🗑 Reset Prefix").clicked() {
-                                match backup_utils::reset_prefix(game.prefix_path()) {
-                                    Ok(_) => tfd::message_box_ok(
-                                        "Reset",
-                                        "Prefix deleted",
-                                        tfd::MessageBoxIcon::Info,
-                                    ),
-                                    Err(e) => tfd::message_box_ok(
-                                        "Reset failed",
-                                        &format!("{}", e),
-                                        tfd::MessageBoxIcon::Error,
-                                    ),
-                                }
-                            }
-
-                            if ui.button("🧹 Clear Shader Cache").clicked() {
-                                if let Ok(libs) = steam::get_steam_libraries() {
-                                    match backup_utils::clear_shader_cache(game.app_id(), &libs) {
-                                        Ok(_) => tfd::message_box_ok(
-                                            "Shader Cache",
-                                            "Shader cache cleared",
-                                            tfd::MessageBoxIcon::Info,
-                                        ),
-                                        Err(e) => tfd::message_box_ok(
-                                            "Shader Cache failed",
-                                            &format!("{}", e),
-                                            tfd::MessageBoxIcon::Error,
-                                        ),
-                                    }
-                                }
-                            }
-
-                            let protontricks_btn = ui.add_enabled(
-                                *tools.get("protontricks").unwrap_or(&false),
-                                egui::Button::new("🔧 Protontricks"),
-                            );
-                            if protontricks_btn.clicked() {
-                                let appid = game.app_id();
-                                thread::spawn(move || {
-                                    protontricks::execute(appid, &[]);
-                                });
-                            }
-                            if !tools.get("protontricks").unwrap_or(&false) {
-                                protontricks_btn.on_hover_text(
-                                    "This feature requires `protontricks`. Please install it using your package manager.",
-                                );
-                            }
-
-                            let winecfg_btn = ui.add_enabled(
-                                *tools.get("winecfg").unwrap_or(&false),
-                                egui::Button::new("⚙️ winecfg"),
-                            );
-                            if winecfg_btn.clicked() {
-                                let appid = game.app_id();
-                                thread::spawn(move || {
-                                    winecfg::execute(appid);
-                                });
-                            }
-                            if !tools.get("winecfg").unwrap_or(&false) {
-                                winecfg_btn.on_hover_text(
-                                    "`winecfg` is not installed or not found in PATH. Please install Wine.",
-                                );
-                            }
-
-                            let terminal_btn = ui.add_enabled(
-                                *tools.get("terminal").unwrap_or(&false),
-                                egui::Button::new("🖥 Open Terminal"),
-                            );
-                            if terminal_btn.clicked() {
-                                let path = game.prefix_path().to_path_buf();
-                                thread::spawn(move || {
-                                    if let Err(e) = terminal::open_terminal(&path) {
-                                        eprintln!("Failed to open terminal: {}", e);
-                                    }
-                                });
-                            }
-                            if *tools.get("terminal").unwrap_or(&false) {
-                                terminal_btn.on_hover_text(
-                                    "Opens a terminal with WINEPREFIX set to this game's prefix.",
-                                );
-                            } else {
-                                terminal_btn.on_hover_text(
-                                    "No terminal emulator found on system.",
-                                );
-                            }
-                        }
-
-                        if ui.button("♻️ Restore").clicked() {
-                            *restore_dialog_open = true;
-                        }
-
-                        if ui.button("🗑 Delete Backup").clicked() {
-                            *delete_dialog_open = true;
-                        }
+                        self.prefix_tools_menu(ui, game, restore_dialog_open, delete_dialog_open, tools);
                     });
                 });
 
@@ -435,6 +426,9 @@ impl<'a> GameDetails<'a> {
 
                     if has_dxvk(game.prefix_path()) {
                         ui.label("✓ DXVK is enabled");
+                    }
+                    if has_vkd3d(game.prefix_path()) {
+                        ui.label("✓ VKD3D is enabled");
                     }
                 });
 
@@ -655,6 +649,11 @@ fn has_dxvk(prefix_path: &Path) -> bool {
     } else {
         false
     }
+}
+
+fn has_vkd3d(prefix_path: &Path) -> bool {
+    let dll_path = prefix_path.join("pfx/drive_c/windows/system32");
+    dll_path.join("d3d12.dll").exists()
 }
 
 fn find_install_dir(app_id: u32) -> Option<std::path::PathBuf> {
