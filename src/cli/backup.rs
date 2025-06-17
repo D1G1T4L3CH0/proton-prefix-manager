@@ -2,6 +2,7 @@ use crate::core::steam;
 use crate::utils::backup as backup_utils;
 
 pub fn execute(appid: u32) {
+    log::debug!("backup command: appid={}", appid);
     println!("📦 Backing up Proton prefix for AppID: {}", appid);
 
     match steam::get_steam_libraries() {

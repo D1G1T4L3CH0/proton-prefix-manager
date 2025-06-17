@@ -51,11 +51,11 @@ mod test_helpers;
 use cli::{Cli, Commands};
 use gui::ProtonPrefixManagerApp;
 use utils::output::determine_format;
+use utils::logging;
 
 fn main() {
-    env_logger::init();
-
     let cli = Cli::parse();
+    logging::init(cli.debug);
 
     match &cli.command {
         Some(Commands::Search {

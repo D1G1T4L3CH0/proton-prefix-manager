@@ -20,6 +20,7 @@ fn open_path(path: &std::path::Path) -> std::io::Result<()> {
 }
 
 pub fn execute(appid: u32) {
+    log::debug!("open command: appid={}", appid);
     println!("📂 Opening Proton prefix for AppID: {}", appid);
     
     match steam::get_steam_libraries() {

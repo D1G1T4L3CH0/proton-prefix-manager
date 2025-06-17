@@ -23,6 +23,7 @@ fn emit_prefix_result(appid: u32, prefix: Option<std::path::PathBuf>, _format: &
 }
 
 pub fn execute(appid: u32, format: &OutputFormat) {
+    log::debug!("prefix command: appid={} format={:?}", appid, format);
     if matches!(format, OutputFormat::Normal) {
         println!("🔍 Locating Proton prefix for AppID: {}", appid);
     }

@@ -4,6 +4,11 @@ use crate::core::steam;
 use crate::utils::backup as backup_utils;
 
 pub fn execute(appid: u32, backup_path: PathBuf) {
+    log::debug!(
+        "restore command: appid={} backup_path={}",
+        appid,
+        backup_path.display()
+    );
     println!("♻️ Restoring Proton prefix for AppID: {}", appid);
 
     match steam::get_steam_libraries() {
