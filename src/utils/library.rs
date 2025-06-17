@@ -1,64 +1,64 @@
-use lazy_static::lazy_static;
-use regex::Regex;
+use keyvalues_parser::{Vdf, Value};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
-lazy_static! {
-    static ref PATH_REGEX: Regex = Regex::new(r#""path"\s+"([^"]+)""#).unwrap();
-}
-
 pub fn parse_libraryfolders_vdf(vdf_path: &str) -> Option<Vec<PathBuf>> {
     let content = fs::read_to_string(vdf_path).ok()?;
-
+    let vdf = Vdf::parse(&content).ok()?;
     let mut library_paths = Vec::new();
-    for cap in PATH_REGEX.captures_iter(&content) {
-        let path = PathBuf::from(&cap[1]);
-        if path.exists() {
-            library_paths.push(path);
+    let folders_obj_opt = if vdf.key == "libraryfolders" {
+        vdf.value.get_obj()
+    } else {
+        vdf
+            .value
+            .get_obj()
+            .and_then(|o| o.get("libraryfolders"))
+            .and_then(|v| v.first())
+            .and_then(Value::get_obj)
+    };
+    if let Some(folders) = folders_obj_opt {
+        for (_k, vals) in folders.iter() {
+            if let Some(val) = vals.first() {
+                if let Some(folder_obj) = val.get_obj() {
+                    if let Some(path_val) = folder_obj.get("path").and_then(|v| v.first()) {
+                        if let Some(path_str) = path_val.get_str() {
+                            let pb = PathBuf::from(path_str);
+                            if pb.exists() {
+                                library_paths.push(pb);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
-
     Some(library_paths)
 }
 
 pub fn parse_appmanifest(path: &Path) -> Option<(u32, String, u64)> {
     let contents = fs::read_to_string(path).ok()?;
-
-    // Use a more efficient approach with fewer allocations
-    let mut appid: Option<u32> = None;
-    let mut name: Option<String> = None;
-    let mut last_played: Option<u64> = None;
-
-    // Only parse until we have all values
-    for line in contents.lines() {
-        let trimmed = line.trim();
-        if appid.is_none() && trimmed.starts_with("\"appid\"") {
-            if let Some(val) = trimmed.split('"').nth(3) {
-                appid = val.parse().ok();
-            }
-        } else if name.is_none() && trimmed.starts_with("\"name\"") {
-            if let Some(val) = trimmed.split('"').nth(3) {
-                name = Some(val.to_string());
-            }
-        } else if last_played.is_none() && trimmed.starts_with("\"LastPlayed\"") {
-            if let Some(val) = trimmed.split('"').nth(3) {
-                last_played = val.parse().ok();
-            }
-        }
-
-        // Early return if we have all values
-        if appid.is_some() && name.is_some() && last_played.is_some() {
-            break;
-        }
-    }
-
-    match (appid, name, last_played) {
-        (Some(a), Some(n), Some(l)) => Some((a, n, l)),
-        (Some(a), Some(n), None) => Some((a, n, 0)), // Default to 0 if LastPlayed is not found
-        _ => None,
-    }
+    let vdf = Vdf::parse(&contents).ok()?;
+    let app_state = vdf.value.get_obj()?;
+    let appid = app_state
+        .get("appid")?
+        .first()?
+        .get_str()?
+        .parse()
+        .ok()?;
+    let name = app_state
+        .get("name")?
+        .first()?
+        .get_str()?
+        .to_string();
+    let last_played = app_state
+        .get("LastPlayed")
+        .and_then(|v| v.first())
+        .and_then(|v| v.get_str())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    Some((appid, name, last_played))
 }
 
 // Cache for game names to avoid repeated file reads

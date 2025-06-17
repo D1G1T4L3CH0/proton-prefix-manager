@@ -27,6 +27,7 @@ thiserror = "1.0.57"
 anyhow = "1.0.80"
 rayon = "1.8.0"
 which = "4.4.2"
+keyvalues-parser = "0.2.0"
 
 [dev-dependencies]
 tempfile = "3.10.1"
