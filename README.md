@@ -107,6 +107,10 @@ proton-prefix-manager winecfg 620
 
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.
 
+## Debug logging
+
+Set `RUST_LOG=debug` to see detailed messages about configuration file discovery and updates.
+
 ## Project goals
 
 - Provide an easy way to locate Proton prefixes for troubleshooting or modding
