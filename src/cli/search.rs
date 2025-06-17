@@ -1,4 +1,5 @@
 use crate::core::steam;
+#[cfg(not(test))]
 use crate::utils::output;
 use crate::utils::output::OutputFormat;
 use crate::core::models::GameInfo;
