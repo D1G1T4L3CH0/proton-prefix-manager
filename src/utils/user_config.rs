@@ -225,13 +225,13 @@ mod tests {
         fs::write(&login, contents).unwrap();
 
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home); }
+        std::env::set_var("HOME", home);
 
         let files = find_localconfig_files();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0], cfg2);
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 
     #[test]
@@ -252,13 +252,13 @@ mod tests {
         windows_fs::symlink_dir(&p1, &p2).unwrap();
 
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home); }
+        std::env::set_var("HOME", home);
 
         let dirs = userdata_dirs();
         assert_eq!(dirs.len(), 1);
         assert_eq!(dirs[0], fs::canonicalize(&p1).unwrap());
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 
     #[test]

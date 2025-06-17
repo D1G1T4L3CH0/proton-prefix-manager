@@ -80,7 +80,7 @@ mod tests {
         let name = "Test Game";
         let home = setup_mock_steam(appid, name);
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         SEARCH_RESULTS.lock().unwrap().clear();
         execute("test", &OutputFormat::Plain);
@@ -91,7 +91,7 @@ mod tests {
         assert_eq!(results[0][0].app_id(), appid);
         assert_eq!(results[0][0].name(), name);
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 
     #[test]
@@ -100,7 +100,7 @@ mod tests {
         crate::core::steam::clear_caches();
         let home = setup_mock_steam(8888, "Another Game");
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         SEARCH_RESULTS.lock().unwrap().clear();
         execute("nomatch", &OutputFormat::Plain);
@@ -109,6 +109,6 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(results[0].is_empty());
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 }
