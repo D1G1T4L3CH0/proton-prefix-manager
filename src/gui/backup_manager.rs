@@ -17,11 +17,16 @@ pub struct BackupEntry {
 pub struct BackupManagerWindow {
     entries: Vec<BackupEntry>,
     confirm_delete_all: bool,
+    needs_refresh: bool,
 }
 
 impl BackupManagerWindow {
     pub fn new() -> Self {
-        Self { entries: Vec::new(), confirm_delete_all: false }
+        Self {
+            entries: Vec::new(),
+            confirm_delete_all: false,
+            needs_refresh: true,
+        }
     }
 
     fn dir_size(path: &Path) -> std::io::Result<u64> {
@@ -75,6 +80,7 @@ impl BackupManagerWindow {
                 });
             }
         }
+        self.needs_refresh = false;
     }
 
     fn prefix_for(app_id: u32, games: Option<&[GameInfo]>) -> Option<PathBuf> {
@@ -97,12 +103,14 @@ impl BackupManagerWindow {
         for p in paths {
             let _ = backup_utils::delete_backup(&p);
         }
+        self.needs_refresh = true;
     }
 
     fn delete_all(&mut self) {
         for e in &self.entries {
             let _ = backup_utils::delete_backup(&e.path);
         }
+        self.needs_refresh = true;
     }
 
     fn has_selection(&self) -> bool {
@@ -111,9 +119,12 @@ impl BackupManagerWindow {
 
     pub fn show(&mut self, ctx: &egui::Context, open: &mut bool, games: Option<&[GameInfo]>) {
         if !*open {
+            self.needs_refresh = true;
             return;
         }
-        self.refresh(games);
+        if self.needs_refresh {
+            self.refresh(games);
+        }
         egui::Window::new("Prefix Backups")
             .open(open)
             .vscroll(true)

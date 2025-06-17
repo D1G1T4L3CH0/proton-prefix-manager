@@ -8,10 +8,22 @@ use dirs_next;
 fn userdata_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(home) = dirs_next::home_dir() {
-        let p1 = home.join(".steam/steam/userdata");
-        if p1.exists() { dirs.push(p1); }
-        let p2 = home.join(".local/share/Steam/userdata");
-        if p2.exists() { dirs.push(p2); }
+        let paths = [
+            home.join(".steam/steam/userdata"),
+            home.join(".local/share/Steam/userdata"),
+        ];
+
+        for p in paths.iter() {
+            if p.exists() {
+                if let Ok(canon) = fs::canonicalize(p) {
+                    if !dirs.contains(&canon) {
+                        dirs.push(canon);
+                    }
+                } else if !dirs.contains(p) {
+                    dirs.push(p.clone());
+                }
+            }
+        }
     }
     dirs
 }
@@ -21,6 +33,8 @@ fn most_recent_user_id() -> Option<String> {
         let paths = [
             home.join(".steam/steam/config/loginusers.vdf"),
             home.join(".local/share/Steam/config/loginusers.vdf"),
+            home.join(".steam/config/loginusers.vdf"),
+            home.join(".steam/root/config/loginusers.vdf"),
         ];
         let re = Regex::new(r#"(?s)"(\d+)"\s*\{[^}]*"MostRecent"\s*"1""#).ok()?;
         for p in paths.iter() {
@@ -158,6 +172,10 @@ mod tests {
     use tempfile::tempdir;
     use std::fs;
     use crate::test_helpers::TEST_MUTEX;
+    #[cfg(unix)]
+    use std::os::unix::fs as unix_fs;
+    #[cfg(windows)]
+    use std::os::windows::fs as windows_fs;
 
     #[test]
     fn test_find_localconfig_files_respects_loginusers() {
@@ -176,7 +194,7 @@ mod tests {
         fs::write(&cfg1, "").unwrap();
         fs::write(&cfg2, "").unwrap();
 
-        let config_dir = home.join(".steam/steam/config");
+        let config_dir = home.join(".steam/config");
         fs::create_dir_all(&config_dir).unwrap();
         let login = config_dir.join("loginusers.vdf");
         let contents = r#""users" {
@@ -196,6 +214,33 @@ mod tests {
     }
 
     #[test]
+    fn test_userdata_dirs_resolves_symlinks() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let home = dir.path();
+
+        let p1 = home.join(".steam/steam/userdata");
+        fs::create_dir_all(&p1).unwrap();
+
+        let p2 = home.join(".local/share/Steam/userdata");
+        fs::create_dir_all(p2.parent().unwrap()).unwrap();
+
+        #[cfg(unix)]
+        unix_fs::symlink(&p1, &p2).unwrap();
+        #[cfg(windows)]
+        windows_fs::symlink_dir(&p1, &p2).unwrap();
+
+        let old_home = std::env::var("HOME").ok();
+        unsafe { std::env::set_var("HOME", home); }
+
+        let dirs = userdata_dirs();
+        assert_eq!(dirs.len(), 1);
+        assert_eq!(dirs[0], fs::canonicalize(&p1).unwrap());
+
+        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+    }
+
+    #[test]
     fn test_update_launch_options_inserts_block() {
         let contents = r#""UserLocalConfigStore" {
     "Software" {
@@ -209,7 +254,7 @@ mod tests {
 }"#;
         let updated = update_launch_options(contents, 1234, "-new").unwrap();
         assert!(updated.contains("\"1234\""));
-        assert!(updated.contains("\"LaunchOptions\" \"-new\"") );
+        assert!(updated.contains("\"LaunchOptions\" \"-new\""));
         assert!(parse_launch_options(&updated, 1234).is_some());
     }
 
@@ -237,7 +282,7 @@ mod tests {
         set_launch_options(7777, "test-val").unwrap();
         let updated = fs::read_to_string(&cfg_path).unwrap();
         assert!(updated.contains("\"7777\""));
-        assert!(updated.contains("\"LaunchOptions\" \"test-val\"") );
+        assert!(updated.contains("\"LaunchOptions\" \"test-val\""));
 
         if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
     }
