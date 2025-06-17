@@ -130,28 +130,37 @@ pub fn get_launch_options(app_id: u32) -> Option<String> {
 }
 
 fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<String> {
-    let mut vdf = Vdf::parse(contents).ok()?;
-    let root = vdf.value.get_mut_obj()?;
-    let apps = root
-        .get_mut("UserLocalConfigStore")?
-        .first_mut()?
-        .get_mut_obj()?
-        .get_mut("Software")?
-        .first_mut()?
-        .get_mut_obj()?
-        .get_mut("Valve")?
-        .first_mut()?
-        .get_mut_obj()?
-        .get_mut("Steam")?
-        .first_mut()?
-        .get_mut_obj()?
-        .get_mut("apps")?
-        .first_mut()?
-        .get_mut_obj()?;
-    let entry = apps
+    // Parse the existing VDF or create a new one if parsing fails
+    let mut vdf = Vdf::parse(contents).unwrap_or_else(|_| {
+        Vdf::new("UserLocalConfigStore".into(), Value::Obj(Default::default()))
+    });
+
+    // Ensure we have a root object to work with
+    if vdf.value.get_mut_obj().is_none() {
+        vdf.value = Value::Obj(Default::default());
+    }
+    let root = vdf.value.get_mut_obj().unwrap();
+
+    // Walk or create the nested hierarchy down to the apps object
+    let ulcs = root
+        .entry("UserLocalConfigStore".into())
+        .or_insert_with(|| vec![Value::Obj(Default::default())]);
+    let mut obj = ulcs.first_mut().and_then(Value::get_mut_obj).unwrap();
+
+    for key in ["Software", "Valve", "Steam", "apps"] {
+        obj = obj
+            .entry(key.into())
+            .or_insert_with(|| vec![Value::Obj(Default::default())])
+            .first_mut()
+            .and_then(Value::get_mut_obj)
+            .unwrap();
+    }
+
+    let entry = obj
         .entry(app_id.to_string().into())
         .or_insert_with(|| vec![Value::Obj(Default::default())]);
     let app_obj = entry.first_mut().and_then(Value::get_mut_obj).unwrap();
+
     match app_obj.get_mut("LaunchOptions") {
         Some(vals) if !vals.is_empty() => {
             if let Some(s) = vals.first_mut().and_then(Value::get_mut_str) {
@@ -162,6 +171,7 @@ fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<Str
             app_obj.insert("LaunchOptions".into(), vec![Value::Str(value.into())]);
         }
     }
+
     Some(format!("{}", vdf))
 }
 
@@ -249,5 +259,13 @@ mod tests {
         assert_eq!(dirs[0], fs::canonicalize(&p1).unwrap());
 
         if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+    }
+
+    #[test]
+    fn test_update_launch_options_creates_section() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let contents = "";
+        let updated = update_launch_options(contents, 123, "-novid").unwrap();
+        assert_eq!(parse_launch_options(&updated, 123), Some("-novid".to_string()));
     }
 }
