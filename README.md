@@ -6,7 +6,7 @@ Proton Prefix Manager is a tool for locating and exploring the Proton prefixes c
 
 Steam uses Proton prefixes (Wine environments) to run Windows games on Linux. This project helps you discover where those prefixes are stored so you can inspect or manage them. You can search your installed games, locate the prefix for a specific game, and open it in your file manager. When run without any arguments, the application launches a GUI that lists your games and shows prefix details.
 
-When multiple Steam users exist, Proton Prefix Manager checks `loginusers.vdf` under Steam's `config` directory and uses the account marked with `"MostRecent" "1"`. If that file is missing, the tool falls back to `~/.steam/config/loginusers.vdf` and `~/.steam/root/config/loginusers.vdf`. Launch options are read from and written to that user's `localconfig.vdf`.
+When multiple Steam users exist, Proton Prefix Manager checks `loginusers.vdf` under Steam's `config` directory and uses the account marked with `"MostRecent" "1"`. If that file is missing, the tool falls back to `~/.steam/config/loginusers.vdf` and `~/.steam/root/config/loginusers.vdf`. `loginusers.vdf` stores 64-bit SteamIDs, which the tool converts to their 32-bit account IDs when resolving the corresponding `localconfig.vdf`. Launch options are read from and written to that user's `localconfig.vdf`.
 
 ## Installation
 
