@@ -76,6 +76,7 @@ pub fn get_launch_options(app_id: u32) -> Option<String> {
 }
 
 fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<String> {
+    // Try to update an existing app block first
     let pattern = format!(r#"(?s)(\"{}\"\s*\{{)([^}}]*)(\}})"#, app_id);
     let re = Regex::new(&pattern).ok()?;
     if let Some(cap) = re.captures(contents) {
@@ -87,10 +88,44 @@ fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<Str
         new_section.push_str(start);
         new_section.push_str(&updated_body);
         new_section.push_str(end);
-        Some(re.replace(contents, new_section).into_owned())
-    } else {
-        None
+        return Some(re.replace(contents, new_section).into_owned());
     }
+
+    // Insert a new block inside the existing "apps" section if present
+    if let Some(apps_pos) = contents.find("\"apps\"") {
+        if let Some(start_brace) = contents[apps_pos..].find('{') {
+            let start_idx = apps_pos + start_brace;
+            let mut depth = 1usize;
+            let bytes = contents.as_bytes();
+            let mut i = start_idx + 1;
+            while i < contents.len() {
+                match bytes[i] {
+                    b'{' => depth += 1,
+                    b'}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            // Found closing brace of the apps section
+                            let mut new_contents = String::new();
+                            new_contents.push_str(&contents[..i]);
+                            if !contents[..i].ends_with('\n') {
+                                new_contents.push('\n');
+                            }
+                            new_contents.push_str(&format!(
+                                "    \"{}\" {{\n        \"LaunchOptions\" \"{}\"\n    }}\n",
+                                app_id, value
+                            ));
+                            new_contents.push_str(&contents[i..]);
+                            return Some(new_contents);
+                        }
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+        }
+    }
+
+    None
 }
 
 pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
@@ -98,6 +133,18 @@ pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
         if let Ok(contents) = fs::read_to_string(&cfg) {
             if let Some(updated) = update_launch_options(&contents, app_id, value) {
                 fs::write(&cfg, updated)?;
+                return Ok(());
+            } else {
+                // No existing app section found; append a new one to the end of the file
+                let mut new_contents = contents.clone();
+                if !new_contents.ends_with('\n') {
+                    new_contents.push('\n');
+                }
+                new_contents.push_str(&format!(
+                    "\"{}\" {{\n    \"LaunchOptions\" \"{}\"\n}}\n",
+                    app_id, value
+                ));
+                fs::write(&cfg, new_contents)?;
                 return Ok(());
             }
         }
@@ -144,6 +191,53 @@ mod tests {
         let files = find_localconfig_files();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0], cfg2);
+
+        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+    }
+
+    #[test]
+    fn test_update_launch_options_inserts_block() {
+        let contents = r#""UserLocalConfigStore" {
+    "Software" {
+        "Valve" {
+            "Steam" {
+                "apps" {
+                }
+            }
+        }
+    }
+}"#;
+        let updated = update_launch_options(contents, 1234, "-new").unwrap();
+        assert!(updated.contains("\"1234\""));
+        assert!(updated.contains("\"LaunchOptions\" \"-new\"") );
+        assert!(parse_launch_options(&updated, 1234).is_some());
+    }
+
+    #[test]
+    fn test_set_launch_options_appends_when_missing() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let home = dir.path();
+
+        let userdata = home.join(".steam/steam/userdata/111111111/config");
+        fs::create_dir_all(&userdata).unwrap();
+        let cfg_path = userdata.join("localconfig.vdf");
+        fs::write(&cfg_path, "").unwrap();
+
+        let config_dir = home.join(".steam/steam/config");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(
+            config_dir.join("loginusers.vdf"),
+            r#""users" { "111111111" { "MostRecent" "1" } }"#,
+        ).unwrap();
+
+        let old_home = std::env::var("HOME").ok();
+        unsafe { std::env::set_var("HOME", home); }
+
+        set_launch_options(7777, "test-val").unwrap();
+        let updated = fs::read_to_string(&cfg_path).unwrap();
+        assert!(updated.contains("\"7777\""));
+        assert!(updated.contains("\"LaunchOptions\" \"test-val\"") );
 
         if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
     }
