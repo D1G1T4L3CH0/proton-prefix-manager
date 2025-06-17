@@ -74,12 +74,14 @@ fn find_localconfig_files() -> Vec<PathBuf> {
     for dir in userdata_dirs() {
         if let Some(uid) = &recent {
             let cfg = dir.join(uid).join("config/localconfig.vdf");
+            log::debug!("checking candidate path: {:?}", cfg);
             if cfg.exists() {
                 files.push(cfg);
             }
         } else if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
                 let cfg = entry.path().join("config/localconfig.vdf");
+                log::debug!("checking candidate path: {:?}", cfg);
                 if cfg.exists() {
                     files.push(cfg);
                 }
@@ -120,9 +122,15 @@ fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
 
 pub fn get_launch_options(app_id: u32) -> Option<String> {
     for cfg in find_localconfig_files() {
-        if let Ok(contents) = fs::read_to_string(&cfg) {
-            if let Some(val) = parse_launch_options(&contents, app_id) {
-                return Some(val);
+        match fs::read_to_string(&cfg) {
+            Ok(contents) => {
+                log::debug!("read localconfig {:?} successfully", cfg);
+                if let Some(val) = parse_launch_options(&contents, app_id) {
+                    return Some(val);
+                }
+            }
+            Err(e) => {
+                log::debug!("failed to read {:?}: {}", cfg, e);
             }
         }
     }
@@ -177,10 +185,24 @@ fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<Str
 
 pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
     for cfg in find_localconfig_files() {
-        if let Ok(contents) = fs::read_to_string(&cfg) {
-            if let Some(updated) = update_launch_options(&contents, app_id, value) {
-                fs::write(&cfg, updated)?;
-                return Ok(());
+        match fs::read_to_string(&cfg) {
+            Ok(contents) => {
+                log::debug!("read localconfig {:?} successfully", cfg);
+                if let Some(updated) = update_launch_options(&contents, app_id, value) {
+                    match fs::write(&cfg, updated) {
+                        Ok(_) => {
+                            log::debug!("wrote launch options to {:?}", cfg);
+                            return Ok(());
+                        }
+                        Err(e) => {
+                            log::debug!("failed to write {:?}: {}", cfg, e);
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                log::debug!("failed to read {:?}: {}", cfg, e);
             }
         }
     }
