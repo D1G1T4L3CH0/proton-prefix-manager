@@ -1,9 +1,9 @@
-use keyvalues_parser::{Vdf, Value};
+use dirs_next;
+use keyvalues_parser::{Value, Vdf};
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use std::collections::HashSet;
-use dirs_next;
 
 /// Search Steam userdata directories for localconfig.vdf files.
 fn userdata_dirs() -> Vec<PathBuf> {
@@ -43,8 +43,7 @@ fn most_recent_user_id() -> Option<String> {
                         let users_obj_opt = if vdf.key == "users" {
                             vdf.value.get_obj()
                         } else {
-                            vdf
-                                .value
+                            vdf.value
                                 .get_obj()
                                 .and_then(|o| o.get("users"))
                                 .and_then(|v| v.first())
@@ -53,7 +52,11 @@ fn most_recent_user_id() -> Option<String> {
                         if let Some(users_obj) = users_obj_opt {
                             for (uid, vals) in users_obj.iter() {
                                 if let Some(user_obj) = vals.first().and_then(Value::get_obj) {
-                                    if let Some(most) = user_obj.get("MostRecent").and_then(|v| v.first()).and_then(Value::get_str) {
+                                    if let Some(most) = user_obj
+                                        .get("MostRecent")
+                                        .and_then(|v| v.first())
+                                        .and_then(Value::get_str)
+                                    {
                                         if most == "1" {
                                             return Some(uid.to_string());
                                         }
@@ -92,9 +95,26 @@ fn find_localconfig_files() -> Vec<PathBuf> {
     files
 }
 
+/// Path to `localconfig.vdf` for the active Steam user, even if the file doesn't exist.
+fn default_localconfig_path() -> Option<PathBuf> {
+    let uid = most_recent_user_id()?;
+    for dir in userdata_dirs() {
+        let user_dir = dir.join(&uid);
+        if user_dir.exists() {
+            return Some(user_dir.join("config/localconfig.vdf"));
+        }
+    }
+    None
+}
+
 /// Return all discovered `localconfig.vdf` files for the current user.
 pub fn get_localconfig_paths() -> Vec<PathBuf> {
     find_localconfig_files()
+}
+
+/// Get the expected location of `localconfig.vdf` for the active user.
+pub fn expected_localconfig_path() -> Option<PathBuf> {
+    default_localconfig_path()
 }
 
 fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
@@ -116,8 +136,7 @@ fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
         .get("apps")?
         .first()?
         .get_obj()?;
-    apps
-        .get(app_id.to_string().as_str())?
+    apps.get(app_id.to_string().as_str())?
         .first()?
         .get_obj()?
         .get("LaunchOptions")?
@@ -146,7 +165,10 @@ pub fn get_launch_options(app_id: u32) -> Option<String> {
 fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<String> {
     // Parse the existing VDF or create a new one if parsing fails
     let mut vdf = Vdf::parse(contents).unwrap_or_else(|_| {
-        Vdf::new("UserLocalConfigStore".into(), Value::Obj(Default::default()))
+        Vdf::new(
+            "UserLocalConfigStore".into(),
+            Value::Obj(Default::default()),
+        )
     });
 
     // Ensure we have a root object to work with
@@ -190,7 +212,9 @@ fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<Str
 }
 
 pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
+    let mut found = false;
     for cfg in find_localconfig_files() {
+        found = true;
         match fs::read_to_string(&cfg) {
             Ok(contents) => {
                 log::debug!("read localconfig {:?} successfully", cfg);
@@ -212,19 +236,37 @@ pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
             }
         }
     }
-    Err(io::Error::new(io::ErrorKind::NotFound, "localconfig not found"))
+    if let Some(cfg) = default_localconfig_path() {
+        fs::create_dir_all(cfg.parent().unwrap())?;
+        if let Some(updated) = update_launch_options("", app_id, value) {
+            fs::write(&cfg, updated)?;
+            log::debug!("created {:?} with launch options", cfg);
+            return Ok(());
+        }
+    }
+    if found {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "failed to update localconfig",
+        ))
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "localconfig not found",
+        ))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
-    use std::fs;
     use crate::test_helpers::TEST_MUTEX;
+    use std::fs;
     #[cfg(unix)]
     use std::os::unix::fs as unix_fs;
     #[cfg(windows)]
     use std::os::windows::fs as windows_fs;
+    use tempfile::tempdir;
 
     #[test]
     fn test_find_localconfig_files_respects_loginusers() {
@@ -259,7 +301,9 @@ mod tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0], cfg2);
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 
     #[test]
@@ -286,7 +330,9 @@ mod tests {
         assert_eq!(dirs.len(), 1);
         assert_eq!(dirs[0], fs::canonicalize(&p1).unwrap());
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 
     #[test]
@@ -305,7 +351,9 @@ mod tests {
         assert_eq!(dirs.len(), 1);
         assert_eq!(dirs[0], fs::canonicalize(&p).unwrap());
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 
     #[test]
@@ -313,19 +361,29 @@ mod tests {
         let _guard = TEST_MUTEX.lock().unwrap();
         let contents = "";
         let updated = update_launch_options(contents, 123, "-novid").unwrap();
-        assert_eq!(parse_launch_options(&updated, 123), Some("-novid".to_string()));
+        assert_eq!(
+            parse_launch_options(&updated, 123),
+            Some("-novid".to_string())
+        );
     }
 
     #[test]
     fn test_set_launch_options_missing_file() {
         let _guard = TEST_MUTEX.lock().unwrap();
-        let dir = tempdir().unwrap();
+        let (home, _prefix, _login) = crate::test_helpers::setup_steam_env(123456, true);
         let old_home = std::env::var("HOME").ok();
-        std::env::set_var("HOME", dir.path());
+        std::env::set_var("HOME", home.path());
+        fs::create_dir_all(home.path().join(".steam/steam/userdata/111111111/config")).unwrap();
 
         let result = set_launch_options(123456, "-novid");
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        let cfg_path = home
+            .path()
+            .join(".steam/steam/userdata/111111111/config/localconfig.vdf");
+        assert!(cfg_path.exists());
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 }
