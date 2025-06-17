@@ -18,6 +18,7 @@ pub struct ProtonPrefixManagerApp {
     installed_games: Arc<Mutex<Vec<GameInfo>>>,
     filtered_games: Vec<GameInfo>,
     selected_game: Option<GameInfo>,
+    last_selected_app_id: Option<u32>,
     search_changed: bool,
     error_message: Option<String>,
     status_message: Option<String>,
@@ -39,6 +40,7 @@ impl Default for ProtonPrefixManagerApp {
             installed_games: Arc::new(Mutex::new(Vec::new())),
             filtered_games: Vec::new(),
             selected_game: None,
+            last_selected_app_id: None,
             search_changed: false,
             error_message: None,
             status_message: Some("Loading...".to_string()),
@@ -280,6 +282,17 @@ impl eframe::App for ProtonPrefixManagerApp {
                 .show(ctx, |ui| {
                     GameList::new(&self.filtered_games).show(ui, &mut self.selected_game);
                 });
+
+            let current_id = self.selected_game.as_ref().map(|g| g.app_id());
+            if current_id != self.last_selected_app_id {
+                self.last_selected_app_id = current_id;
+                if let Some(id) = current_id {
+                    if let Ok(updated) = steam::refresh_game_info(id) {
+                        self.selected_game = Some(updated);
+                    }
+                    self.config_cache.remove(&id);
+                }
+            }
 
             egui::CentralPanel::default().show(ctx, |ui| {
                 egui::ScrollArea::vertical()
