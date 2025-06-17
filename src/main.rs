@@ -118,6 +118,9 @@ fn main() {
                 auto_update.clone(),
             );
         }
+        Some(Commands::ConfigPaths) => {
+            cli::config_paths::execute();
+        }
         None => {
             log::info!("Launching GUI...");
             let native_options = NativeOptions::default();

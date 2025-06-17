@@ -13,6 +13,7 @@ pub mod winecfg;
 pub mod restore;
 pub mod search;
 pub mod config;
+pub mod config_paths;
 
 /// Proton Prefix Manager CLI
 ///
@@ -147,4 +148,7 @@ pub enum Commands {
         #[arg(long)]
         auto_update: Option<String>,
     },
+
+    /// Show paths to discovered localconfig.vdf files
+    ConfigPaths,
 }
