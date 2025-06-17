@@ -52,7 +52,17 @@ fn find_localconfig_files() -> Vec<PathBuf> {
             let cfg = dir.join(uid).join("config/localconfig.vdf");
             log::debug!("checking candidate path: {:?}", cfg);
             if cfg.exists() {
-                files.push(cfg);
+                files.push(cfg.clone());
+            } else if let Ok(entries) = fs::read_dir(&dir) {
+                // Fallback: enumerate all user directories if the loginusers
+                // candidate was not found in this userdata directory.
+                for entry in entries.flatten() {
+                    let cfg = entry.path().join("config/localconfig.vdf");
+                    log::debug!("checking fallback path: {:?}", cfg);
+                    if cfg.exists() {
+                        files.push(cfg);
+                    }
+                }
             }
         } else if let Ok(entries) = fs::read_dir(&dir) {
             for entry in entries.flatten() {
@@ -76,7 +86,25 @@ fn default_localconfig_path() -> Option<PathBuf> {
             return Some(user_dir.join("config/localconfig.vdf"));
         }
     }
-    None
+    // Fallback: if the path derived from loginusers.vdf does not exist,
+    // check for exactly one existing localconfig.vdf file in all userdata
+    // directories. If multiple are found, we cannot safely determine the
+    // active user and return None.
+    let mut found = None;
+    for dir in steam_paths::userdata_dirs() {
+        if let Ok(entries) = fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let cfg = entry.path().join("config/localconfig.vdf");
+                if cfg.exists() {
+                    if found.is_some() {
+                        return None;
+                    }
+                    found = Some(cfg);
+                }
+            }
+        }
+    }
+    found
 }
 
 /// Return all discovered `localconfig.vdf` files for the current user.
