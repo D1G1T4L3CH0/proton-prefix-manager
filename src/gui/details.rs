@@ -387,20 +387,43 @@ impl<'a> GameDetails<'a> {
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for r in results {
-                        let icon = match r.status {
-                            CheckStatus::Pass => "✅",
-                            CheckStatus::Fail(_) => "❌",
-                            CheckStatus::Warning(_) => "⚠",
+                        let (icon, color) = match r.status {
+                            CheckStatus::Pass => ("✔", egui::Color32::from_rgb(0, 180, 0)),
+                            CheckStatus::Fail(_) => ("✖", egui::Color32::from_rgb(200, 0, 0)),
+                            CheckStatus::Warning(_) => ("⚠", egui::Color32::from_rgb(200, 150, 0)),
                         };
+
                         let msg = match &r.status {
-                            CheckStatus::Pass => "".to_string(),
-                            CheckStatus::Fail(ref m) | CheckStatus::Warning(ref m) => {
-                                format!(" - {}", m)
+                            CheckStatus::Pass => r.label.clone(),
+                            CheckStatus::Fail(m) | CheckStatus::Warning(m) => {
+                                format!("{} - {}", r.label, m)
                             }
                         };
-                        ui.label(format!("{} {}{}", icon, r.label, msg));
+
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(icon).color(color).strong());
+                            ui.label(msg);
+                        });
                     }
                 });
+
+                let has_fail = results
+                    .iter()
+                    .any(|r| matches!(r.status, CheckStatus::Fail(_)));
+                let has_warn = results
+                    .iter()
+                    .any(|r| matches!(r.status, CheckStatus::Warning(_)));
+                let summary = if has_fail {
+                    "❌ Prefix has problems"
+                } else if has_warn {
+                    "⚠ Prefix validated with warnings"
+                } else {
+                    "✅ Prefix validated successfully"
+                };
+
+                ui.separator();
+                ui.label(summary);
+
                 if ui.button("Close").clicked() {
                     *open = false;
                 }
