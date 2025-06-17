@@ -253,7 +253,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.hyperlink_to(
                         "GitHub",
-                        "https://github.com/yourusername/proton-prefix-manager",
+                        "https://github.com/D1G1T4L3CH0/proton-prefix-manager",
                     );
                 });
             });
