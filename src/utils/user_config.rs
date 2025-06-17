@@ -92,6 +92,11 @@ fn find_localconfig_files() -> Vec<PathBuf> {
     files
 }
 
+/// Return all discovered `localconfig.vdf` files for the current user.
+pub fn get_localconfig_paths() -> Vec<PathBuf> {
+    find_localconfig_files()
+}
+
 fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
     let vdf = Vdf::parse(contents).ok()?;
     let root = vdf.value.get_obj()?;

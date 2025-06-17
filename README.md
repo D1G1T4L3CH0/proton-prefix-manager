@@ -105,6 +105,12 @@ Launch winecfg:
 proton-prefix-manager winecfg 620
 ```
 
+Show detected `localconfig.vdf` paths:
+
+```bash
+proton-prefix-manager config-paths
+```
+
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.
 
 ## Debug logging
