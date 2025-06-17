@@ -5,5 +5,6 @@ pub mod output;
 pub mod dependencies;
 pub mod manifest;
 pub mod user_config;
+pub mod steam_paths;
 pub mod terminal;
 pub mod logging;

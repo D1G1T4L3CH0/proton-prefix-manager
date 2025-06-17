@@ -6,7 +6,6 @@
 use crate::core::models::{GameInfo, SteamLibrary};
 use crate::error::{Error, Result};
 use crate::utils::library;
-use dirs_next;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use std::fs;
@@ -63,12 +62,17 @@ pub fn get_steam_libraries() -> Result<Vec<SteamLibrary>> {
     }
 
     // Cache invalid or empty, fetch fresh data
-    let home = dirs_next::home_dir().ok_or(Error::SteamNotFound)?;
-    let vdf_path = home.join(".steam/steam/config/libraryfolders.vdf");
-
-    if !vdf_path.exists() {
-        return Err(Error::SteamConfigNotFound(vdf_path));
+    let mut vdf_path = None;
+    for dir in crate::utils::steam_paths::config_dirs() {
+        let candidate = dir.join("libraryfolders.vdf");
+        if candidate.exists() {
+            vdf_path = Some(candidate);
+            break;
+        }
     }
+
+    let vdf_path =
+        vdf_path.ok_or_else(|| Error::SteamConfigNotFound(PathBuf::from("libraryfolders.vdf")))?;
 
     let vdf_path_str = vdf_path
         .to_str()
