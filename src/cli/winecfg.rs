@@ -60,37 +60,15 @@ pub fn execute(appid: u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::TEST_MUTEX;
+    use crate::test_helpers::{setup_steam_env, TEST_MUTEX};
     use std::fs;
-    use tempfile::tempdir;
-
-    fn setup_mock_steam(appid: u32) -> (tempfile::TempDir, std::path::PathBuf) {
-        let home = tempdir().unwrap();
-        let config_dir = home.path().join(".steam/steam/config");
-        fs::create_dir_all(&config_dir).unwrap();
-
-        let library_dir = home.path().join("library");
-        let compat_path = library_dir
-            .join("steamapps/compatdata")
-            .join(appid.to_string());
-        fs::create_dir_all(&compat_path).unwrap();
-
-        let vdf_path = config_dir.join("libraryfolders.vdf");
-        let content = format!(
-            "\"libraryfolders\" {{\n    \"0\" {{\n        \"path\" \"{}\"\n    }}\n}}",
-            library_dir.display()
-        );
-        fs::write(&vdf_path, content).unwrap();
-
-        (home, compat_path)
-    }
 
     #[test]
     fn test_execute_runs_winecfg() {
         let _guard = TEST_MUTEX.lock().unwrap();
         crate::core::steam::clear_caches();
         let appid = 4321;
-        let (home, prefix) = setup_mock_steam(appid);
+        let (home, prefix, _) = setup_steam_env(appid, false);
         let old_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", home.path());
 
@@ -109,7 +87,7 @@ mod tests {
         let _guard = TEST_MUTEX.lock().unwrap();
         crate::core::steam::clear_caches();
         let appid = 8765;
-        let (home, prefix) = setup_mock_steam(appid);
+        let (home, prefix, _) = setup_steam_env(appid, false);
         fs::remove_dir_all(&prefix).unwrap();
         let old_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", home.path());

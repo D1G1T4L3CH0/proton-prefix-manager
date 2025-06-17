@@ -41,37 +41,8 @@ pub fn execute(name: &str, format: &OutputFormat) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::TEST_MUTEX;
+    use crate::test_helpers::{setup_steam_env, TEST_MUTEX};
     use std::fs;
-    use tempfile::tempdir;
-
-    fn setup_mock_steam(appid: u32, name: &str) -> tempfile::TempDir {
-        let home = tempdir().unwrap();
-        let config_dir = home.path().join(".steam/steam/config");
-        fs::create_dir_all(&config_dir).unwrap();
-
-        let library_dir = home.path().join("library");
-        let steamapps = library_dir.join("steamapps");
-        fs::create_dir_all(&steamapps).unwrap();
-        let compat_path = library_dir.join("steamapps/compatdata").join(appid.to_string());
-        fs::create_dir_all(&compat_path).unwrap();
-
-        let manifest = steamapps.join(format!("appmanifest_{}.acf", appid));
-        let manifest_content = format!(
-            "\"AppState\" {{\n    \"appid\" \"{}\"\n    \"name\" \"{}\"\n}}",
-            appid, name
-        );
-        fs::write(&manifest, manifest_content).unwrap();
-
-        let vdf_path = config_dir.join("libraryfolders.vdf");
-        let content = format!(
-            "\"libraryfolders\" {{\n    \"0\" {{\n        \"path\" \"{}\"\n    }}\n}}",
-            library_dir.display()
-        );
-        fs::write(&vdf_path, content).unwrap();
-
-        home
-    }
 
     #[test]
     fn test_search_finds_game() {
@@ -79,7 +50,15 @@ mod tests {
         crate::core::steam::clear_caches();
         let appid = 7777;
         let name = "Test Game";
-        let home = setup_mock_steam(appid, name);
+        let (home, _prefix, _) = setup_steam_env(appid, false);
+        let steamapps = home.path().join("library/steamapps");
+        fs::create_dir_all(&steamapps).unwrap();
+        let manifest = steamapps.join(format!("appmanifest_{}.acf", appid));
+        let manifest_content = format!(
+            "\"AppState\" {{\n    \"appid\" \"{}\"\n    \"name\" \"{}\"\n}}",
+            appid, name
+        );
+        fs::write(&manifest, manifest_content).unwrap();
         let old_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", home.path());
 
@@ -99,7 +78,11 @@ mod tests {
     fn test_search_no_results() {
         let _guard = TEST_MUTEX.lock().unwrap();
         crate::core::steam::clear_caches();
-        let home = setup_mock_steam(8888, "Another Game");
+        let (home, _prefix, _) = setup_steam_env(8888, false);
+        let steamapps = home.path().join("library/steamapps");
+        fs::create_dir_all(&steamapps).unwrap();
+        let manifest = steamapps.join("appmanifest_8888.acf");
+        fs::write(&manifest, "").unwrap();
         let old_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", home.path());
 
