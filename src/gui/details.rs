@@ -262,7 +262,7 @@ impl<'a> GameDetails<'a> {
                 if let Ok(entries) = fs::read_dir(&common) {
                     for e in entries.flatten() {
                         if let Ok(name) = e.file_name().into_string() {
-                            if name.to_lowercase().starts_with("proton") {
+                            if name.to_lowercase().contains("proton") {
                                 versions.push(name);
                             }
                         }
