@@ -2,10 +2,12 @@ use keyvalues_parser::{Vdf, Value};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::collections::HashSet;
 use dirs_next;
 
 /// Search Steam userdata directories for localconfig.vdf files.
 fn userdata_dirs() -> Vec<PathBuf> {
+    let mut seen = HashSet::new();
     let mut dirs = Vec::new();
     if let Some(home) = dirs_next::home_dir() {
         let paths = [
@@ -15,12 +17,9 @@ fn userdata_dirs() -> Vec<PathBuf> {
 
         for p in paths.iter() {
             if p.exists() {
-                if let Ok(canon) = fs::canonicalize(p) {
-                    if !dirs.contains(&canon) {
-                        dirs.push(canon);
-                    }
-                } else if !dirs.contains(p) {
-                    dirs.push(p.clone());
+                let canon = fs::canonicalize(p).unwrap_or_else(|_| p.clone());
+                if seen.insert(canon.clone()) {
+                    dirs.push(canon);
                 }
             }
         }
@@ -226,7 +225,7 @@ mod tests {
     }
 
     #[test]
-    fn test_userdata_dirs_resolves_symlinks() {
+    fn test_userdata_dirs_deduplicates_symlink() {
         let _guard = TEST_MUTEX.lock().unwrap();
         let dir = tempdir().unwrap();
         let home = dir.path();
