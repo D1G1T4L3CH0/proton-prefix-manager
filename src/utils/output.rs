@@ -15,6 +15,7 @@ pub struct PrefixResult {
     pub prefix_path: Option<PathBuf>,
 }
 
+#[cfg_attr(test, allow(dead_code, unused))]
 pub enum OutputFormat {
     Normal,
     Plain,
@@ -22,6 +23,7 @@ pub enum OutputFormat {
     Delimited(String),
 }
 
+#[cfg_attr(test, allow(dead_code))]
 pub fn print_search_results(results: Vec<GameInfo>, format: &OutputFormat) {
     match format {
         OutputFormat::Normal => {
@@ -84,6 +86,7 @@ pub fn print_search_results(results: Vec<GameInfo>, format: &OutputFormat) {
 }
 
 #[cfg(not(test))]
+#[cfg_attr(test, allow(dead_code))]
 pub fn print_prefix_result(appid: u32, prefix: Option<PathBuf>, format: &OutputFormat) {
     match format {
         OutputFormat::Normal => match prefix {

@@ -76,6 +76,7 @@ impl GameInfo {
     }
 
     /// Checks if the Proton prefix exists.
+    #[cfg_attr(test, allow(dead_code))]
     pub fn prefix_exists(&self) -> bool {
         self.prefix_path.exists()
     }

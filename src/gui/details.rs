@@ -467,7 +467,7 @@ impl<'a> GameDetails<'a> {
                     ui.horizontal(|ui| {
                         ui.label("Proton Version:");
                         let versions = Self::list_proton_versions();
-                        egui::ComboBox::from_id_source("proton_version")
+                        egui::ComboBox::from_id_salt("proton_version")
                             .selected_text(cfg.proton.clone().unwrap_or_else(|| "Default".to_string()))
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut cfg.proton, None, "Default");
