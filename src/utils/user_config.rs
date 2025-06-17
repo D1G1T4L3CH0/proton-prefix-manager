@@ -21,6 +21,8 @@ fn most_recent_user_id() -> Option<String> {
         let paths = [
             home.join(".steam/steam/config/loginusers.vdf"),
             home.join(".local/share/Steam/config/loginusers.vdf"),
+            home.join(".steam/config/loginusers.vdf"),
+            home.join(".steam/root/config/loginusers.vdf"),
         ];
         let re = Regex::new(r#"(?s)"(\d+)"\s*\{[^}]*"MostRecent"\s*"1""#).ok()?;
         for p in paths.iter() {
@@ -129,7 +131,7 @@ mod tests {
         fs::write(&cfg1, "").unwrap();
         fs::write(&cfg2, "").unwrap();
 
-        let config_dir = home.join(".steam/steam/config");
+        let config_dir = home.join(".steam/config");
         fs::create_dir_all(&config_dir).unwrap();
         let login = config_dir.join("loginusers.vdf");
         let contents = r#""users" {
