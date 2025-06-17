@@ -26,7 +26,9 @@ pub fn execute(
                         Ok(mut contents) => {
                             if let Some(v) = launch {
                                 contents = manifest_utils::update_or_insert(&contents, "LaunchOptions", &v);
-                                let _ = user_config::set_launch_options(appid, &v);
+                                if let Err(e) = user_config::set_launch_options(appid, &v) {
+                                    eprintln!("Failed to update launch options: {}", e);
+                                }
                             }
                             if let Some(v) = proton {
                                 contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", &v);

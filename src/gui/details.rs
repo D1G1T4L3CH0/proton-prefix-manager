@@ -239,7 +239,7 @@ impl<'a> GameDetails<'a> {
             if manifest.exists() {
                 let mut contents = fs::read_to_string(&manifest)?;
                 contents = manifest_utils::update_or_insert(&contents, "LaunchOptions", &cfg.launch_options);
-                let _ = user_config::set_launch_options(app_id, &cfg.launch_options);
+                user_config::set_launch_options(app_id, &cfg.launch_options)?;
                 if let Some(p) = &cfg.proton {
                     contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", p);
                 }

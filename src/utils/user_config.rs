@@ -268,4 +268,17 @@ mod tests {
         let updated = update_launch_options(contents, 123, "-novid").unwrap();
         assert_eq!(parse_launch_options(&updated, 123), Some("-novid".to_string()));
     }
+
+    #[test]
+    fn test_set_launch_options_missing_file() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let old_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", dir.path());
+
+        let result = set_launch_options(123456, "-novid");
+        assert!(result.is_err());
+
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+    }
 }
