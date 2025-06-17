@@ -9,8 +9,7 @@ use std::path::PathBuf;
 /// Converts a 64-bit SteamID into the 32-bit account ID used by Steam's
 /// `userdata` directories.
 fn steamid_to_accountid(uid: &str) -> Option<String> {
-    uid
-        .parse::<u64>()
+    uid.parse::<u64>()
         .ok()
         .map(|v| ((v & 0xFFFFFFFF) as u32).to_string())
 }
@@ -41,7 +40,10 @@ fn most_recent_user_id() -> Option<String> {
                                 .and_then(Value::get_str)
                             {
                                 if most == "1" {
-                                    return Some(steamid_to_accountid(uid).unwrap_or_else(|| uid.to_string()));
+                                    return Some(
+                                        steamid_to_accountid(uid)
+                                            .unwrap_or_else(|| uid.to_string()),
+                                    );
                                 }
                             }
                         }
@@ -128,11 +130,18 @@ pub fn expected_localconfig_path() -> Option<PathBuf> {
 
 fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
     let vdf = Vdf::parse(contents).ok()?;
-    let root = vdf.value.get_obj()?;
+    let mut root = vdf.value.get_obj()?;
+
+    // Handle both single and nested `UserLocalConfigStore` keys
+    if let Some(obj) = root
+        .get("UserLocalConfigStore")
+        .and_then(|v| v.first())
+        .and_then(Value::get_obj)
+    {
+        root = obj;
+    }
+
     let apps = root
-        .get("UserLocalConfigStore")?
-        .first()?
-        .get_obj()?
         .get("Software")?
         .first()?
         .get_obj()?
@@ -184,13 +193,19 @@ fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<Str
     if vdf.value.get_mut_obj().is_none() {
         vdf.value = Value::Obj(Default::default());
     }
-    let root = vdf.value.get_mut_obj().unwrap();
+    let mut obj = {
+        let root = vdf.value.get_mut_obj().unwrap();
+        match root
+            .get_mut("UserLocalConfigStore")
+            .and_then(|v| v.first_mut())
+            .and_then(Value::get_mut_obj)
+        {
+            Some(inner) => inner,
+            None => root,
+        }
+    };
 
     // Walk or create the nested hierarchy down to the apps object
-    let ulcs = root
-        .entry("UserLocalConfigStore".into())
-        .or_insert_with(|| vec![Value::Obj(Default::default())]);
-    let mut obj = ulcs.first_mut().and_then(Value::get_mut_obj).unwrap();
 
     for key in ["Software", "Valve", "Steam", "apps"] {
         obj = obj
