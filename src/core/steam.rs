@@ -260,6 +260,40 @@ pub fn load_games_from_libraries(libraries: &[SteamLibrary]) -> Result<Vec<GameI
     Ok(games)
 }
 
+/// Refresh information for a single game by reading its latest manifest and prefix data.
+pub fn refresh_game_info(app_id: u32) -> Result<GameInfo> {
+    let libraries = get_steam_libraries()?;
+
+    let mut prefix_path = None;
+    let mut name = None;
+    let mut last_played = 0;
+    let mut has_manifest = false;
+
+    for lib in &libraries {
+        let manifest = lib
+            .steamapps_path()
+            .join(format!("appmanifest_{}.acf", app_id));
+        if manifest.exists() {
+            if let Some((_, game_name, lp)) = library::parse_appmanifest(&manifest) {
+                name = Some(game_name);
+                last_played = lp;
+                has_manifest = true;
+            }
+            prefix_path = Some(lib.compatdata_path().join(app_id.to_string()));
+            break;
+        }
+    }
+
+    if prefix_path.is_none() {
+        prefix_path = find_proton_prefix(app_id, &libraries);
+    }
+
+    let prefix = prefix_path.ok_or(Error::InvalidAppId(app_id.to_string()))?;
+    let game_name = name.unwrap_or_else(|| format!("App {}", app_id));
+
+    GameInfo::new(app_id, game_name, prefix, has_manifest, last_played)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
