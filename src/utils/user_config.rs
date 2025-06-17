@@ -13,6 +13,7 @@ fn userdata_dirs() -> Vec<PathBuf> {
         let paths = [
             home.join(".steam/steam/userdata"),
             home.join(".local/share/Steam/userdata"),
+            home.join(".steam/root/userdata"),
         ];
 
         for p in paths.iter() {
@@ -279,6 +280,25 @@ mod tests {
         let dirs = userdata_dirs();
         assert_eq!(dirs.len(), 1);
         assert_eq!(dirs[0], fs::canonicalize(&p1).unwrap());
+
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+    }
+
+    #[test]
+    fn test_userdata_dirs_checks_steam_root() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let home = dir.path();
+
+        let p = home.join(".steam/root/userdata");
+        fs::create_dir_all(&p).unwrap();
+
+        let old_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", home);
+
+        let dirs = userdata_dirs();
+        assert_eq!(dirs.len(), 1);
+        assert_eq!(dirs[0], fs::canonicalize(&p).unwrap());
 
         if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
