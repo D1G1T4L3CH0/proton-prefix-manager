@@ -24,6 +24,7 @@ fn emit_search_results(results: Vec<GameInfo>, _format: &OutputFormat) {
 
 
 pub fn execute(name: &str, format: &OutputFormat) {
+    log::debug!("search command: name={} format={:?}", name, format);
     if matches!(format, OutputFormat::Normal) {
         println!("🔎 Searching for '{}'", name);
     }

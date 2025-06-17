@@ -35,6 +35,7 @@ fn run_protontricks(appid: u32, args: &[String]) -> std::io::Result<()> {
 }
 
 pub fn execute(appid: u32, args: &[String]) {
+    log::debug!("protontricks command: appid={} args={:?}", appid, args);
     println!("🔧 Running protontricks for AppID: {}", appid);
 
     if !command_available("protontricks") {

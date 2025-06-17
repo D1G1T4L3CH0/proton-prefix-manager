@@ -34,6 +34,7 @@ fn run_winecfg(prefix_path: &std::path::Path) -> std::io::Result<()> {
 }
 
 pub fn execute(appid: u32) {
+    log::debug!("winecfg command: appid={}", appid);
     println!("🍷 Launching winecfg for AppID: {}", appid);
 
     if !command_available("winecfg") {

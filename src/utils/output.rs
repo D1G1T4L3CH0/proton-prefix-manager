@@ -16,6 +16,7 @@ pub struct PrefixResult {
 }
 
 #[cfg_attr(test, allow(dead_code, unused))]
+#[derive(Debug)]
 pub enum OutputFormat {
     Normal,
     Plain,

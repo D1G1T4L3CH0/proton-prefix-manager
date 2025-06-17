@@ -10,6 +10,14 @@ pub fn execute(
     cloud: Option<bool>,
     auto_update: Option<String>,
 ) {
+    log::debug!(
+        "config command: appid={} launch={:?} proton={:?} cloud={:?} auto_update={:?}",
+        appid,
+        launch,
+        proton,
+        cloud,
+        auto_update
+    );
     if launch.is_none() && proton.is_none() && cloud.is_none() && auto_update.is_none() {
         println!("No configuration changes specified.");
         return;

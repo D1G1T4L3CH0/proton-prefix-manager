@@ -6,3 +6,4 @@ pub mod dependencies;
 pub mod manifest;
 pub mod user_config;
 pub mod terminal;
+pub mod logging;

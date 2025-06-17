@@ -113,9 +113,11 @@ proton-prefix-manager config-paths
 
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.
 
+Use `--debug` to print detailed information about paths and files the application interacts with. This enables verbose logging without having to set the `RUST_LOG` environment variable.
+
 ## Debug logging
 
-Set `RUST_LOG=debug` to see detailed messages about configuration file discovery and updates.
+You can still set `RUST_LOG=debug` for low level logging from dependencies, but in most cases the `--debug` flag is sufficient.
 
 ## Project goals
 

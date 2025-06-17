@@ -24,6 +24,10 @@ pub mod config_paths;
 #[command(name = "proton-prefix-manager")]
 #[command(about = "Find and manage Proton prefixes easily", long_about = None)]
 pub struct Cli {
+    /// Enable debug logging
+    #[arg(long, short, global = true)]
+    pub debug: bool,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }

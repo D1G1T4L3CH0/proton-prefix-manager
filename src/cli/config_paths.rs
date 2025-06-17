@@ -25,7 +25,9 @@ fn emit_paths(paths: Vec<std::path::PathBuf>) {
 }
 
 pub fn execute() {
+    log::debug!("config-paths command");
     let paths = user_config::get_localconfig_paths();
+    log::debug!("found paths: {:?}", paths);
     emit_paths(paths);
 }
 
