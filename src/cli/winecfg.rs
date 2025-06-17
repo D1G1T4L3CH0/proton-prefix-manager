@@ -92,7 +92,7 @@ mod tests {
         let appid = 4321;
         let (home, prefix) = setup_mock_steam(appid);
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         WINECFG_CALLS.lock().unwrap().clear();
         execute(appid);
@@ -101,7 +101,7 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0], prefix);
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 
     #[test]
@@ -112,7 +112,7 @@ mod tests {
         let (home, prefix) = setup_mock_steam(appid);
         fs::remove_dir_all(&prefix).unwrap();
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         WINECFG_CALLS.lock().unwrap().clear();
         execute(appid);
@@ -120,6 +120,6 @@ mod tests {
         let calls = WINECFG_CALLS.lock().unwrap();
         assert!(calls.is_empty());
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 }

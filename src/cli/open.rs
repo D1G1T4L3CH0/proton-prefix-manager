@@ -72,7 +72,7 @@ mod tests {
         let appid = 5555;
         let (home, prefix) = setup_mock_steam(appid);
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         OPENED_PATHS.lock().unwrap().clear();
         execute(appid);
@@ -81,7 +81,7 @@ mod tests {
         assert_eq!(opened.len(), 1);
         assert_eq!(opened[0], prefix);
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 
     #[test]
@@ -92,7 +92,7 @@ mod tests {
         let (home, prefix) = setup_mock_steam(appid);
         fs::remove_dir_all(&prefix).unwrap();
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         OPENED_PATHS.lock().unwrap().clear();
         execute(appid);
@@ -100,6 +100,6 @@ mod tests {
         let opened = OPENED_PATHS.lock().unwrap();
         assert!(opened.is_empty());
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 }

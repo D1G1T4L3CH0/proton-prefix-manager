@@ -93,7 +93,7 @@ mod tests {
         let appid = 1234;
         let (home, _prefix) = setup_mock_steam(appid);
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         PROTONTRICKS_CALLS.lock().unwrap().clear();
         execute(appid, &["-v".to_string()]);
@@ -103,7 +103,7 @@ mod tests {
         assert_eq!(calls[0].0, appid);
         assert_eq!(calls[0].1, vec!["-v".to_string()]);
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 
     #[test]
@@ -114,7 +114,7 @@ mod tests {
         let (home, prefix) = setup_mock_steam(appid);
         fs::remove_dir_all(&prefix).unwrap();
         let old_home = std::env::var("HOME").ok();
-        unsafe { std::env::set_var("HOME", home.path()); }
+        std::env::set_var("HOME", home.path());
 
         PROTONTRICKS_CALLS.lock().unwrap().clear();
         execute(appid, &[]);
@@ -122,6 +122,6 @@ mod tests {
         let calls = PROTONTRICKS_CALLS.lock().unwrap();
         assert!(calls.is_empty());
 
-        if let Some(h) = old_home { unsafe { std::env::set_var("HOME", h); } }
+        if let Some(h) = old_home { std::env::set_var("HOME", h); }
     }
 }
