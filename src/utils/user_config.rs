@@ -1,66 +1,38 @@
-use dirs_next;
+use crate::utils::steam_paths;
 use keyvalues_parser::{Value, Vdf};
-use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 
 /// Search Steam userdata directories for localconfig.vdf files.
-fn userdata_dirs() -> Vec<PathBuf> {
-    let mut seen = HashSet::new();
-    let mut dirs = Vec::new();
-    if let Some(home) = dirs_next::home_dir() {
-        let paths = [
-            home.join(".steam/steam/userdata"),
-            home.join(".local/share/Steam/userdata"),
-            home.join(".steam/root/userdata"),
-        ];
-
-        for p in paths.iter() {
-            if p.exists() {
-                let canon = fs::canonicalize(p).unwrap_or_else(|_| p.clone());
-                if seen.insert(canon.clone()) {
-                    dirs.push(canon);
-                }
-            }
-        }
-    }
-    dirs
-}
 
 fn most_recent_user_id() -> Option<String> {
-    if let Some(home) = dirs_next::home_dir() {
-        let paths = [
-            home.join(".steam/steam/config/loginusers.vdf"),
-            home.join(".local/share/Steam/config/loginusers.vdf"),
-            home.join(".steam/config/loginusers.vdf"),
-            home.join(".steam/root/config/loginusers.vdf"),
-        ];
-        for p in paths.iter() {
-            if p.exists() {
-                if let Ok(contents) = fs::read_to_string(p) {
-                    if let Ok(vdf) = Vdf::parse(&contents) {
-                        let users_obj_opt = if vdf.key == "users" {
-                            vdf.value.get_obj()
-                        } else {
-                            vdf.value
-                                .get_obj()
-                                .and_then(|o| o.get("users"))
+    for dir in steam_paths::config_dirs() {
+        let p = dir.join("loginusers.vdf");
+        if !p.exists() {
+            continue;
+        }
+        if let Ok(contents) = fs::read_to_string(&p) {
+            if let Ok(vdf) = Vdf::parse(&contents) {
+                let users_obj_opt = if vdf.key == "users" {
+                    vdf.value.get_obj()
+                } else {
+                    vdf.value
+                        .get_obj()
+                        .and_then(|o| o.get("users"))
+                        .and_then(|v| v.first())
+                        .and_then(Value::get_obj)
+                };
+                if let Some(users_obj) = users_obj_opt {
+                    for (uid, vals) in users_obj.iter() {
+                        if let Some(user_obj) = vals.first().and_then(Value::get_obj) {
+                            if let Some(most) = user_obj
+                                .get("MostRecent")
                                 .and_then(|v| v.first())
-                                .and_then(Value::get_obj)
-                        };
-                        if let Some(users_obj) = users_obj_opt {
-                            for (uid, vals) in users_obj.iter() {
-                                if let Some(user_obj) = vals.first().and_then(Value::get_obj) {
-                                    if let Some(most) = user_obj
-                                        .get("MostRecent")
-                                        .and_then(|v| v.first())
-                                        .and_then(Value::get_str)
-                                    {
-                                        if most == "1" {
-                                            return Some(uid.to_string());
-                                        }
-                                    }
+                                .and_then(Value::get_str)
+                            {
+                                if most == "1" {
+                                    return Some(uid.to_string());
                                 }
                             }
                         }
@@ -75,7 +47,7 @@ fn most_recent_user_id() -> Option<String> {
 fn find_localconfig_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
     let recent = most_recent_user_id();
-    for dir in userdata_dirs() {
+    for dir in steam_paths::userdata_dirs() {
         if let Some(uid) = &recent {
             let cfg = dir.join(uid).join("config/localconfig.vdf");
             log::debug!("checking candidate path: {:?}", cfg);
@@ -98,7 +70,7 @@ fn find_localconfig_files() -> Vec<PathBuf> {
 /// Path to `localconfig.vdf` for the active Steam user, even if the file doesn't exist.
 fn default_localconfig_path() -> Option<PathBuf> {
     let uid = most_recent_user_id()?;
-    for dir in userdata_dirs() {
+    for dir in steam_paths::userdata_dirs() {
         let user_dir = dir.join(&uid);
         if user_dir.exists() {
             return Some(user_dir.join("config/localconfig.vdf"));
@@ -326,7 +298,7 @@ mod tests {
         let old_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", home);
 
-        let dirs = userdata_dirs();
+        let dirs = steam_paths::userdata_dirs();
         assert_eq!(dirs.len(), 1);
         assert_eq!(dirs[0], fs::canonicalize(&p1).unwrap());
 
@@ -347,7 +319,7 @@ mod tests {
         let old_home = std::env::var("HOME").ok();
         std::env::set_var("HOME", home);
 
-        let dirs = userdata_dirs();
+        let dirs = steam_paths::userdata_dirs();
         assert_eq!(dirs.len(), 1);
         assert_eq!(dirs[0], fs::canonicalize(&p).unwrap());
 
