@@ -6,6 +6,13 @@ use std::path::PathBuf;
 
 /// Search Steam userdata directories for localconfig.vdf files.
 
+fn steamid_to_accountid(uid: &str) -> Option<String> {
+    uid
+        .parse::<u64>()
+        .ok()
+        .map(|v| ((v & 0xFFFFFFFF) as u32).to_string())
+}
+
 fn most_recent_user_id() -> Option<String> {
     for dir in steam_paths::config_dirs() {
         let p = dir.join("loginusers.vdf");
@@ -32,7 +39,7 @@ fn most_recent_user_id() -> Option<String> {
                                 .and_then(Value::get_str)
                             {
                                 if most == "1" {
-                                    return Some(uid.to_string());
+                                    return Some(steamid_to_accountid(uid).unwrap_or_else(|| uid.to_string()));
                                 }
                             }
                         }
@@ -300,6 +307,37 @@ mod tests {
         let files = find_localconfig_files();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0], cfg2);
+
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
+    }
+
+    #[test]
+    fn test_find_localconfig_handles_steamid64() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let home = dir.path();
+
+        let userdata = home.join(".steam/steam/userdata");
+        fs::create_dir_all(&userdata).unwrap();
+        let acc = "41216114";
+        fs::create_dir_all(userdata.join(acc).join("config")).unwrap();
+        let cfg = userdata.join(acc).join("config/localconfig.vdf");
+        fs::write(&cfg, "").unwrap();
+
+        let config_dir = home.join(".steam/config");
+        fs::create_dir_all(&config_dir).unwrap();
+        let login = config_dir.join("loginusers.vdf");
+        let contents = r#""users" { "76561198001481842" { "MostRecent" "1" } }"#;
+        fs::write(&login, contents).unwrap();
+
+        let old_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", home);
+
+        let files = find_localconfig_files();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0], cfg);
 
         if let Some(h) = old_home {
             std::env::set_var("HOME", h);
