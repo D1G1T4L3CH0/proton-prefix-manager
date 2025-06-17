@@ -1,16 +1,17 @@
+use super::backup_manager::BackupManagerWindow;
+use super::details::GameConfig;
 use super::details::GameDetails;
 use super::game_list::GameList;
 use crate::core::models::GameInfo;
 use crate::core::steam;
+use crate::utils::dependencies::scan_tools;
+use crate::utils::prefix_validator::CheckResult;
+use crate::utils::terminal;
 use eframe::egui;
-use std::sync::{Arc, Mutex};
-use std::thread;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use crate::utils::dependencies::scan_tools;
-use crate::utils::terminal;
-use super::details::GameConfig;
-use super::backup_manager::BackupManagerWindow;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -25,6 +26,8 @@ pub struct ProtonPrefixManagerApp {
     dark_mode: bool,
     restore_dialog_open: bool,
     delete_dialog_open: bool,
+    validation_dialog_open: bool,
+    validation_results: Vec<CheckResult>,
     tool_status: BTreeMap<String, bool>,
     last_tool_scan: f64,
     config_cache: HashMap<u32, GameConfig>,
@@ -47,6 +50,8 @@ impl Default for ProtonPrefixManagerApp {
             dark_mode: true,
             restore_dialog_open: false,
             delete_dialog_open: false,
+            validation_dialog_open: false,
+            validation_results: Vec::new(),
             tool_status: {
                 let mut map = scan_tools(&["protontricks", "winecfg"]);
                 map.insert("terminal".to_string(), terminal::terminal_available());
@@ -206,7 +211,11 @@ impl eframe::App for ProtonPrefixManagerApp {
                     if ui.button(if self.dark_mode { "☀" } else { "🌙" }).clicked() {
                         self.toggle_theme(ctx);
                     }
-                    if ui.button("Manage Backups").on_hover_text("View and manage backups for all games.").clicked() {
+                    if ui
+                        .button("Manage Backups")
+                        .on_hover_text("View and manage backups for all games.")
+                        .clicked()
+                    {
                         self.show_backup_manager = true;
                     }
                 });
@@ -303,6 +312,8 @@ impl eframe::App for ProtonPrefixManagerApp {
                             ui,
                             &mut self.restore_dialog_open,
                             &mut self.delete_dialog_open,
+                            &mut self.validation_dialog_open,
+                            &mut self.validation_results,
                             &self.tool_status,
                             &mut self.config_cache,
                         );
@@ -322,7 +333,8 @@ impl eframe::App for ProtonPrefixManagerApp {
         let now = ctx.input(|i| i.time);
         if now - self.last_tool_scan > 5.0 {
             self.tool_status = scan_tools(&["protontricks", "winecfg"]);
-            self.tool_status.insert("terminal".to_string(), terminal::terminal_available());
+            self.tool_status
+                .insert("terminal".to_string(), terminal::terminal_available());
             self.last_tool_scan = now;
         }
     }

@@ -1,20 +1,21 @@
+use crate::cli::{protontricks, winecfg};
 use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::backup as backup_utils;
-use eframe::egui;
-use std::thread;
-use crate::cli::{protontricks, winecfg};
+use crate::utils::manifest as manifest_utils;
+use crate::utils::prefix_validator::{self, CheckResult, CheckStatus};
 use crate::utils::terminal;
+use crate::utils::user_config;
+use eframe::egui;
+use egui::menu;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::io;
-use crate::utils::manifest as manifest_utils;
-use crate::utils::user_config;
+use std::path::Path;
+use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tinyfiledialogs as tfd;
-use egui::menu;
 
 pub struct GameDetails<'a> {
     game: Option<&'a GameInfo>,
@@ -100,6 +101,8 @@ impl<'a> GameDetails<'a> {
         game: &GameInfo,
         restore_dialog_open: &mut bool,
         delete_dialog_open: &mut bool,
+        validation_dialog_open: &mut bool,
+        validation_results: &mut Vec<CheckResult>,
         tools: &BTreeMap<String, bool>,
     ) {
         menu::menu_button(ui, "Prefix Tools ▾", |ui| {
@@ -128,11 +131,9 @@ impl<'a> GameDetails<'a> {
             }
             if ui.button("Reset Prefix").clicked() {
                 match backup_utils::reset_prefix(game.prefix_path()) {
-                    Ok(_) => tfd::message_box_ok(
-                        "Reset",
-                        "Prefix deleted",
-                        tfd::MessageBoxIcon::Info,
-                    ),
+                    Ok(_) => {
+                        tfd::message_box_ok("Reset", "Prefix deleted", tfd::MessageBoxIcon::Info)
+                    }
                     Err(e) => tfd::message_box_ok(
                         "Reset failed",
                         &format!("{}", e),
@@ -158,7 +159,18 @@ impl<'a> GameDetails<'a> {
                 }
                 ui.close_menu();
             }
-            if ui.add_enabled(*tools.get("terminal").unwrap_or(&false), egui::Button::new("Open Terminal")).clicked() {
+            if ui.button("Validate Prefix").clicked() {
+                *validation_dialog_open = true;
+                *validation_results = prefix_validator::validate_prefix(game.prefix_path());
+                ui.close_menu();
+            }
+            if ui
+                .add_enabled(
+                    *tools.get("terminal").unwrap_or(&false),
+                    egui::Button::new("Open Terminal"),
+                )
+                .clicked()
+            {
                 let path = game.prefix_path().to_path_buf();
                 thread::spawn(move || {
                     if let Err(e) = terminal::open_terminal(&path) {
@@ -171,14 +183,26 @@ impl<'a> GameDetails<'a> {
                 let _ = open::that(game.prefix_path());
                 ui.close_menu();
             }
-            if ui.add_enabled(*tools.get("winecfg").unwrap_or(&false), egui::Button::new("Launch winecfg")).clicked() {
+            if ui
+                .add_enabled(
+                    *tools.get("winecfg").unwrap_or(&false),
+                    egui::Button::new("Launch winecfg"),
+                )
+                .clicked()
+            {
                 let appid = game.app_id();
                 thread::spawn(move || {
                     winecfg::execute(appid);
                 });
                 ui.close_menu();
             }
-            if ui.add_enabled(*tools.get("protontricks").unwrap_or(&false), egui::Button::new("Launch protontricks")).clicked() {
+            if ui
+                .add_enabled(
+                    *tools.get("protontricks").unwrap_or(&false),
+                    egui::Button::new("Launch protontricks"),
+                )
+                .clicked()
+            {
                 let appid = game.app_id();
                 thread::spawn(move || {
                     protontricks::execute(appid, &[]);
@@ -202,7 +226,6 @@ impl<'a> GameDetails<'a> {
         false
     }
 
-
     fn load_game_config(app_id: u32) -> io::Result<GameConfig> {
         let libraries = steam::get_steam_libraries()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
@@ -216,8 +239,12 @@ impl<'a> GameDetails<'a> {
                 let launch = user_config::get_launch_options(app_id)
                     .or_else(|| manifest_utils::get_value(&contents, "LaunchOptions"))
                     .unwrap_or_default();
-                let cloud = manifest_utils::get_value(&contents, "AllowCloudSaves").unwrap_or_else(|| "1".to_string()) == "1";
-                let auto = manifest_utils::get_value(&contents, "AutoUpdateBehavior").unwrap_or_else(|| "0".to_string()) == "0";
+                let cloud = manifest_utils::get_value(&contents, "AllowCloudSaves")
+                    .unwrap_or_else(|| "1".to_string())
+                    == "1";
+                let auto = manifest_utils::get_value(&contents, "AutoUpdateBehavior")
+                    .unwrap_or_else(|| "0".to_string())
+                    == "0";
                 return Ok(GameConfig {
                     proton,
                     launch_options: launch,
@@ -226,7 +253,10 @@ impl<'a> GameDetails<'a> {
                 });
             }
         }
-        Err(io::Error::new(io::ErrorKind::NotFound, "manifest not found"))
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "manifest not found",
+        ))
     }
 
     fn save_game_config(app_id: u32, cfg: &GameConfig) -> io::Result<()> {
@@ -238,20 +268,29 @@ impl<'a> GameDetails<'a> {
                 .join(format!("appmanifest_{}.acf", app_id));
             if manifest.exists() {
                 let mut contents = fs::read_to_string(&manifest)?;
-                contents = manifest_utils::update_or_insert(&contents, "LaunchOptions", &cfg.launch_options);
+                contents = manifest_utils::update_or_insert(
+                    &contents,
+                    "LaunchOptions",
+                    &cfg.launch_options,
+                );
                 user_config::set_launch_options(app_id, &cfg.launch_options)?;
                 if let Some(p) = &cfg.proton {
                     contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", p);
                 }
                 let cloud_val = if cfg.cloud_sync { "1" } else { "0" };
-                contents = manifest_utils::update_or_insert(&contents, "AllowCloudSaves", cloud_val);
+                contents =
+                    manifest_utils::update_or_insert(&contents, "AllowCloudSaves", cloud_val);
                 let auto_val = if cfg.auto_update { "0" } else { "1" };
-                contents = manifest_utils::update_or_insert(&contents, "AutoUpdateBehavior", auto_val);
+                contents =
+                    manifest_utils::update_or_insert(&contents, "AutoUpdateBehavior", auto_val);
                 fs::write(&manifest, contents)?;
                 return Ok(());
             }
         }
-        Err(io::Error::new(io::ErrorKind::NotFound, "manifest not found"))
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "manifest not found",
+        ))
     }
 
     fn list_proton_versions() -> Vec<String> {
@@ -275,12 +314,7 @@ impl<'a> GameDetails<'a> {
         versions
     }
 
-    fn restore_window(
-        &mut self,
-        ctx: &egui::Context,
-        game: &GameInfo,
-        open: &mut bool,
-    ) {
+    fn restore_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) {
         egui::Window::new("Select Backup to Restore")
             .collapsible(false)
             .show(ctx, |ui| {
@@ -313,12 +347,7 @@ impl<'a> GameDetails<'a> {
             });
     }
 
-    fn delete_window(
-        &mut self,
-        ctx: &egui::Context,
-        game: &GameInfo,
-        open: &mut bool,
-    ) {
+    fn delete_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) {
         egui::Window::new("Select Backup to Delete")
             .collapsible(false)
             .show(ctx, |ui| {
@@ -351,11 +380,40 @@ impl<'a> GameDetails<'a> {
             });
     }
 
+    fn validate_window(&self, ctx: &egui::Context, results: &[CheckResult], open: &mut bool) {
+        egui::Window::new("Prefix Validation")
+            .collapsible(false)
+            .resizable(true)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    for r in results {
+                        let icon = match r.status {
+                            CheckStatus::Pass => "✅",
+                            CheckStatus::Fail(_) => "❌",
+                            CheckStatus::Warning(_) => "⚠",
+                        };
+                        let msg = match &r.status {
+                            CheckStatus::Pass => "".to_string(),
+                            CheckStatus::Fail(ref m) | CheckStatus::Warning(ref m) => {
+                                format!(" - {}", m)
+                            }
+                        };
+                        ui.label(format!("{} {}{}", icon, r.label, msg));
+                    }
+                });
+                if ui.button("Close").clicked() {
+                    *open = false;
+                }
+            });
+    }
+
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
         restore_dialog_open: &mut bool,
         delete_dialog_open: &mut bool,
+        validation_dialog_open: &mut bool,
+        validation_results: &mut Vec<CheckResult>,
         tools: &BTreeMap<String, bool>,
         configs: &mut HashMap<u32, GameConfig>,
     ) {
@@ -398,7 +456,15 @@ impl<'a> GameDetails<'a> {
                     }
 
                     ui.horizontal(|ui| {
-                        self.prefix_tools_menu(ui, game, restore_dialog_open, delete_dialog_open, tools);
+                        self.prefix_tools_menu(
+                            ui,
+                            game,
+                            restore_dialog_open,
+                            delete_dialog_open,
+                            validation_dialog_open,
+                            validation_results,
+                            tools,
+                        );
                     });
                 });
 
@@ -447,10 +513,10 @@ impl<'a> GameDetails<'a> {
                         });
                     }
 
-                if let Some(install_dir) = find_install_dir(game.app_id()) {
-                    self.show_path(ui, "Install Directory:", &install_dir);
-                }
-            });
+                    if let Some(install_dir) = find_install_dir(game.app_id()) {
+                        self.show_path(ui, "Install Directory:", &install_dir);
+                    }
+                });
 
             // Game Settings section
             let cfg = configs
@@ -460,7 +526,11 @@ impl<'a> GameDetails<'a> {
                 || cfg.proton.is_some()
                 || !cfg.auto_update
                 || !cfg.cloud_sync;
-            let header_label = if has_custom { "⚙ Game Settings *" } else { "⚙ Game Settings" };
+            let header_label = if has_custom {
+                "⚙ Game Settings *"
+            } else {
+                "⚙ Game Settings"
+            };
             egui::CollapsingHeader::new(header_label)
                 .default_open(has_custom)
                 .show(ui, |ui| {
@@ -468,7 +538,9 @@ impl<'a> GameDetails<'a> {
                         ui.label("Proton Version:");
                         let versions = Self::list_proton_versions();
                         egui::ComboBox::from_id_salt("proton_version")
-                            .selected_text(cfg.proton.clone().unwrap_or_else(|| "Default".to_string()))
+                            .selected_text(
+                                cfg.proton.clone().unwrap_or_else(|| "Default".to_string()),
+                            )
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut cfg.proton, None, "Default");
                                 for v in versions {
@@ -536,6 +608,10 @@ impl<'a> GameDetails<'a> {
 
             if *delete_dialog_open {
                 self.delete_window(ui.ctx(), game, delete_dialog_open);
+            }
+
+            if *validation_dialog_open {
+                self.validate_window(ui.ctx(), validation_results, validation_dialog_open);
             }
         } else {
             ui.centered_and_justified(|ui| {

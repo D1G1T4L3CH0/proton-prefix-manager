@@ -1,10 +1,11 @@
 // Utility/helper functions
 pub mod backup;
-pub mod library;
-pub mod output;
 pub mod dependencies;
+pub mod library;
+pub mod logging;
 pub mod manifest;
-pub mod user_config;
+pub mod output;
+pub mod prefix_validator;
 pub mod steam_paths;
 pub mod terminal;
-pub mod logging;
+pub mod user_config;
