@@ -6,9 +6,12 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 #[cfg(not(test))]
-fn emit_paths(paths: Vec<std::path::PathBuf>) {
+fn emit_paths(paths: Vec<std::path::PathBuf>, default: Option<std::path::PathBuf>) {
     if paths.is_empty() {
-        println!("No localconfig.vdf files found");
+        match default {
+            Some(p) => println!("No localconfig.vdf found. Expected: {}", p.display()),
+            None => println!("No localconfig.vdf files found"),
+        }
     } else {
         for p in paths {
             println!("{}", p.display());
@@ -20,7 +23,7 @@ fn emit_paths(paths: Vec<std::path::PathBuf>) {
 pub static EMITTED_PATHS: Lazy<Mutex<Vec<Vec<std::path::PathBuf>>>> =
     Lazy::new(|| Mutex::new(Vec::new()));
 #[cfg(test)]
-fn emit_paths(paths: Vec<std::path::PathBuf>) {
+fn emit_paths(paths: Vec<std::path::PathBuf>, _default: Option<std::path::PathBuf>) {
     EMITTED_PATHS.lock().unwrap().push(paths);
 }
 
@@ -28,7 +31,8 @@ pub fn execute() {
     log::debug!("config-paths command");
     let paths = user_config::get_localconfig_paths();
     log::debug!("found paths: {:?}", paths);
-    emit_paths(paths);
+    let default = user_config::expected_localconfig_path();
+    emit_paths(paths, default);
 }
 
 #[cfg(test)]
@@ -70,7 +74,9 @@ mod tests {
         assert_eq!(emitted.len(), 1);
         assert_eq!(emitted[0], vec![expected]);
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 
     #[test]
@@ -90,6 +96,8 @@ mod tests {
         assert_eq!(emitted.len(), 1);
         assert!(emitted[0].is_empty());
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 }
