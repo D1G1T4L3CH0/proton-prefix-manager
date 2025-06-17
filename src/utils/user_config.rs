@@ -6,6 +6,8 @@ use std::path::PathBuf;
 
 /// Search Steam userdata directories for localconfig.vdf files.
 
+/// Converts a 64-bit SteamID into the 32-bit account ID used by Steam's
+/// `userdata` directories.
 fn steamid_to_accountid(uid: &str) -> Option<String> {
     uid
         .parse::<u64>()
