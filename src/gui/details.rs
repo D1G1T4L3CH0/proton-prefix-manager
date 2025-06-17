@@ -130,15 +130,23 @@ impl<'a> GameDetails<'a> {
                 ui.close_menu();
             }
             if ui.button("Reset Prefix").clicked() {
-                match backup_utils::reset_prefix(game.prefix_path()) {
-                    Ok(_) => {
-                        tfd::message_box_ok("Reset", "Prefix deleted", tfd::MessageBoxIcon::Info)
+                if tfd::message_box_yes_no(
+                    "Confirm Reset",
+                    "Resetting will delete the prefix. It's prudent to create a backup of your important data or configuration files before performing any critical actions. This ensures you can restore your system to a known good state if something unexpected happens. Continue?",
+                    tfd::MessageBoxIcon::Warning,
+                    tfd::YesNo::No,
+                ) == tfd::YesNo::Yes
+                {
+                    match backup_utils::reset_prefix(game.prefix_path()) {
+                        Ok(_) => {
+                            tfd::message_box_ok("Reset", "Prefix deleted", tfd::MessageBoxIcon::Info)
+                        }
+                        Err(e) => tfd::message_box_ok(
+                            "Reset failed",
+                            &format!("{}", e),
+                            tfd::MessageBoxIcon::Error,
+                        ),
                     }
-                    Err(e) => tfd::message_box_ok(
-                        "Reset failed",
-                        &format!("{}", e),
-                        tfd::MessageBoxIcon::Error,
-                    ),
                 }
                 ui.close_menu();
             }
