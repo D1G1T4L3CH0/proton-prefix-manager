@@ -1,4 +1,4 @@
-use regex::Regex;
+use keyvalues_parser::{Vdf, Value};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -36,12 +36,31 @@ fn most_recent_user_id() -> Option<String> {
             home.join(".steam/config/loginusers.vdf"),
             home.join(".steam/root/config/loginusers.vdf"),
         ];
-        let re = Regex::new(r#"(?s)"(\d+)"\s*\{[^}]*"MostRecent"\s*"1""#).ok()?;
         for p in paths.iter() {
             if p.exists() {
                 if let Ok(contents) = fs::read_to_string(p) {
-                    if let Some(cap) = re.captures(&contents) {
-                        return Some(cap[1].to_string());
+                    if let Ok(vdf) = Vdf::parse(&contents) {
+                        let users_obj_opt = if vdf.key == "users" {
+                            vdf.value.get_obj()
+                        } else {
+                            vdf
+                                .value
+                                .get_obj()
+                                .and_then(|o| o.get("users"))
+                                .and_then(|v| v.first())
+                                .and_then(Value::get_obj)
+                        };
+                        if let Some(users_obj) = users_obj_opt {
+                            for (uid, vals) in users_obj.iter() {
+                                if let Some(user_obj) = vals.first().and_then(Value::get_obj) {
+                                    if let Some(most) = user_obj.get("MostRecent").and_then(|v| v.first()).and_then(Value::get_str) {
+                                        if most == "1" {
+                                            return Some(uid.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -72,10 +91,32 @@ fn find_localconfig_files() -> Vec<PathBuf> {
 }
 
 fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
-    let pattern = format!(r#"(?s)\"{}\"\s*\{{[^}}]*\"LaunchOptions\"\s+\"([^\"]*)\""#, app_id);
-    let re = Regex::new(&pattern).ok()?;
-    re.captures(contents)
-        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
+    let vdf = Vdf::parse(contents).ok()?;
+    let root = vdf.value.get_obj()?;
+    let apps = root
+        .get("UserLocalConfigStore")?
+        .first()?
+        .get_obj()?
+        .get("Software")?
+        .first()?
+        .get_obj()?
+        .get("Valve")?
+        .first()?
+        .get_obj()?
+        .get("Steam")?
+        .first()?
+        .get_obj()?
+        .get("apps")?
+        .first()?
+        .get_obj()?;
+    apps
+        .get(app_id.to_string().as_str())?
+        .first()?
+        .get_obj()?
+        .get("LaunchOptions")?
+        .first()?
+        .get_str()
+        .map(|s| s.to_string())
 }
 
 pub fn get_launch_options(app_id: u32) -> Option<String> {
@@ -90,21 +131,39 @@ pub fn get_launch_options(app_id: u32) -> Option<String> {
 }
 
 fn update_launch_options(contents: &str, app_id: u32, value: &str) -> Option<String> {
-    let pattern = format!(r#"(?s)(\"{}\"\s*\{{)([^}}]*)(\}})"#, app_id);
-    let re = Regex::new(&pattern).ok()?;
-    if let Some(cap) = re.captures(contents) {
-        let start = cap.get(1)?.as_str();
-        let body = cap.get(2)?.as_str();
-        let end = cap.get(3)?.as_str();
-        let updated_body = crate::utils::manifest::update_or_insert(body, "LaunchOptions", value);
-        let mut new_section = String::new();
-        new_section.push_str(start);
-        new_section.push_str(&updated_body);
-        new_section.push_str(end);
-        Some(re.replace(contents, new_section).into_owned())
-    } else {
-        None
+    let mut vdf = Vdf::parse(contents).ok()?;
+    let root = vdf.value.get_mut_obj()?;
+    let apps = root
+        .get_mut("UserLocalConfigStore")?
+        .first_mut()?
+        .get_mut_obj()?
+        .get_mut("Software")?
+        .first_mut()?
+        .get_mut_obj()?
+        .get_mut("Valve")?
+        .first_mut()?
+        .get_mut_obj()?
+        .get_mut("Steam")?
+        .first_mut()?
+        .get_mut_obj()?
+        .get_mut("apps")?
+        .first_mut()?
+        .get_mut_obj()?;
+    let entry = apps
+        .entry(app_id.to_string().into())
+        .or_insert_with(|| vec![Value::Obj(Default::default())]);
+    let app_obj = entry.first_mut().and_then(Value::get_mut_obj).unwrap();
+    match app_obj.get_mut("LaunchOptions") {
+        Some(vals) if !vals.is_empty() => {
+            if let Some(s) = vals.first_mut().and_then(Value::get_mut_str) {
+                *s.to_mut() = value.to_string();
+            }
+        }
+        _ => {
+            app_obj.insert("LaunchOptions".into(), vec![Value::Str(value.into())]);
+        }
     }
+    Some(format!("{}", vdf))
 }
 
 pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
