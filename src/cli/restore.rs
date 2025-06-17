@@ -9,6 +9,7 @@ pub fn execute(appid: u32, backup_path: PathBuf) {
         appid,
         backup_path.display()
     );
+    println!("\u{26a0}\u{fe0f} It's prudent to create a backup of your important data or configuration files before performing any critical actions. This ensures you can restore your system to a known good state if something unexpected happens.");
     println!("♻️ Restoring Proton prefix for AppID: {}", appid);
 
     match steam::get_steam_libraries() {
