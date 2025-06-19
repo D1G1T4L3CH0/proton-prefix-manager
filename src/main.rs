@@ -94,6 +94,9 @@ fn main() {
         Some(Commands::DeleteBackup { backup }) => {
             cli::delete_backup::execute(backup.clone());
         }
+        Some(Commands::Repair { appid }) => {
+            cli::repair::execute(*appid);
+        }
         Some(Commands::Reset { appid }) => {
             cli::reset::execute(*appid);
         }

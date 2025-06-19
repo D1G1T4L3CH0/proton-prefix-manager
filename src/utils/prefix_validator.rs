@@ -1,5 +1,9 @@
 use std::fs;
 use std::path::Path;
+use walkdir::WalkDir;
+
+use crate::core::steam;
+use crate::utils::steam_paths;
 
 /// Status of a validation check.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -14,6 +18,48 @@ pub enum CheckStatus {
 pub struct CheckResult {
     pub label: String,
     pub status: CheckStatus,
+}
+
+fn detect_proton_version(prefix_path: &Path) -> Option<String> {
+    let version_file = prefix_path.join("version");
+    if version_file.exists() {
+        if let Ok(contents) = fs::read_to_string(&version_file) {
+            let version = contents.trim().to_string();
+            if !version.is_empty() {
+                return Some(version);
+            }
+        }
+    }
+
+    if let Some(parent) = prefix_path.parent() {
+        let version_file = parent.join("version");
+        if version_file.exists() {
+            if let Ok(contents) = fs::read_to_string(&version_file) {
+                let version = contents.trim().to_string();
+                if !version.is_empty() {
+                    return Some(version);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn proton_runtime_exists(version: &str) -> bool {
+    if let Ok(libs) = steam::get_steam_libraries() {
+        for lib in libs {
+            if lib.join("steamapps/common").join(version).exists() {
+                return true;
+            }
+        }
+    }
+    for dir in steam_paths::compatibilitytools_dirs() {
+        if dir.join(version).exists() {
+            return true;
+        }
+    }
+    false
 }
 
 impl CheckResult {
@@ -62,6 +108,13 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
     }
     results.push(CheckResult::pass("pfx folder"));
 
+    if fs::read_dir(&pfx)
+        .map(|mut it| it.next().is_none())
+        .unwrap_or(true)
+    {
+        results.push(CheckResult::fail("pfx folder", "Prefix appears empty"));
+    }
+
     // Required subdirectories
     let drive_c = pfx.join("drive_c");
     if drive_c.is_dir() {
@@ -101,6 +154,13 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
         }
     }
 
+    let winetricks_log = pfx.join("winetricks.log");
+    if winetricks_log.is_file() {
+        results.push(CheckResult::pass("winetricks.log"));
+    } else {
+        results.push(CheckResult::warn("winetricks.log", "Missing"));
+    }
+
     // windows directory under drive_c
     let windows_dir = drive_c.join("windows");
     if windows_dir.is_dir() {
@@ -125,6 +185,45 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
         results.push(CheckResult::pass("users/steamuser"));
     } else {
         results.push(CheckResult::warn("users/steamuser", "Not found"));
+    }
+
+    let mut broken_symlinks = 0;
+    for entry in WalkDir::new(&pfx) {
+        if let Ok(e) = entry {
+            if e.file_type().is_symlink() {
+                if let Ok(target) = fs::read_link(e.path()) {
+                    if !target.is_absolute() {
+                        let abs = e.path().parent().unwrap_or(Path::new("")).join(&target);
+                        if !abs.exists() {
+                            broken_symlinks += 1;
+                        }
+                    } else if !target.exists() {
+                        broken_symlinks += 1;
+                    }
+                } else {
+                    broken_symlinks += 1;
+                }
+            }
+        }
+    }
+    if broken_symlinks > 0 {
+        results.push(CheckResult::warn(
+            "Symlinks",
+            format!("{} broken links", broken_symlinks),
+        ));
+    }
+
+    if let Some(ver) = detect_proton_version(prefix) {
+        if proton_runtime_exists(&ver) {
+            results.push(CheckResult::pass("Proton runtime"));
+        } else {
+            results.push(CheckResult::fail(
+                "Proton runtime",
+                format!("Version '{}' missing", ver),
+            ));
+        }
+    } else {
+        results.push(CheckResult::warn("Proton runtime", "Unknown version"));
     }
 
     results

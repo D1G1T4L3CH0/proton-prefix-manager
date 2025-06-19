@@ -94,6 +94,12 @@ proton-prefix-manager reset 620
 ```
 **Warning:** Resetting a prefix will permanently delete it. It's prudent to create a backup of your important data or configuration files before performing this or any other critical action so you can restore your system if something goes wrong.
 
+Repair a prefix:
+
+```bash
+proton-prefix-manager repair 620
+```
+
 Clear shader cache:
 
 ```bash
