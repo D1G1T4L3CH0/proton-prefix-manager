@@ -3,17 +3,18 @@ use std::path::PathBuf;
 
 pub mod backup;
 pub mod clear_cache;
+pub mod config;
+pub mod config_paths;
 pub mod delete_backup;
 pub mod list_backups;
 pub mod open;
-pub mod protontricks;
 pub mod prefix;
+pub mod protontricks;
 pub mod reset;
-pub mod winecfg;
 pub mod restore;
 pub mod search;
-pub mod config;
-pub mod config_paths;
+pub mod userdata;
+pub mod winecfg;
 
 /// Proton Prefix Manager CLI
 ///
@@ -72,6 +73,12 @@ pub enum Commands {
 
     /// Open the Proton prefix in the file manager
     Open {
+        /// The Steam App ID of the game
+        appid: u32,
+    },
+
+    /// Open the Steam userdata directory for the given App ID
+    Userdata {
         /// The Steam App ID of the game
         appid: u32,
     },

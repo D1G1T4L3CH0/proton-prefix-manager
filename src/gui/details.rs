@@ -193,6 +193,14 @@ impl<'a> GameDetails<'a> {
                 let _ = open::that(game.prefix_path());
                 ui.close_menu();
             }
+            if ui.button("Open Userdata Folder").clicked() {
+                if let Some(path) = steam::find_userdata_dir(game.app_id()) {
+                    let _ = open::that(path);
+                } else {
+                    eprintln!("Userdata folder not found");
+                }
+                ui.close_menu();
+            }
             if ui
                 .add_enabled(
                     *tools.get("winecfg").unwrap_or(&false),

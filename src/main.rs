@@ -79,6 +79,9 @@ fn main() {
         Some(Commands::Open { appid }) => {
             cli::open::execute(*appid);
         }
+        Some(Commands::Userdata { appid }) => {
+            cli::userdata::execute(*appid);
+        }
         Some(Commands::Backup { appid }) => {
             cli::backup::execute(*appid);
         }
