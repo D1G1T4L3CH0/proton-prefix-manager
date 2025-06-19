@@ -142,6 +142,9 @@ impl BackupManagerWindow {
 
     pub fn show(&mut self, ctx: &egui::Context, open: &mut bool, games: Option<&[GameInfo]>) {
         if !*open {
+            self.entries.clear();
+            self.rx = None;
+            self.loading = false;
             self.needs_refresh = true;
             return;
         }

@@ -99,6 +99,19 @@ impl ProtonPrefixManagerApp {
         app
     }
 
+    fn clear_selection_data(&mut self, app_id: Option<u32>) {
+        if let Some(id) = app_id {
+            self.config_cache.remove(&id);
+            self.prefix_cache.remove(&id);
+        }
+        if app_id.is_none() {
+            self.config_cache.clear();
+            self.prefix_cache.clear();
+        }
+        crate::utils::library::clear_manifest_cache();
+        crate::utils::user_config::clear_localconfig_cache();
+    }
+
     fn sort_filtered_games(&mut self) {
         let opt = self.sort_option;
         self.filtered_games.sort_by(|a, b| compare_games(a, b, opt));
@@ -351,6 +364,7 @@ impl eframe::App for ProtonPrefixManagerApp {
 
             let current_id = self.selected_game.as_ref().map(|g| g.app_id());
             if current_id != self.last_selected_app_id {
+                self.clear_selection_data(self.last_selected_app_id);
                 self.last_selected_app_id = current_id;
                 if let Some(id) = current_id {
                     if let Ok(updated) = steam::refresh_game_info(id) {
@@ -359,6 +373,8 @@ impl eframe::App for ProtonPrefixManagerApp {
                     self.config_cache.remove(&id);
                     self.prefix_cache
                         .insert(id, super::details::collect_prefix_info(self.selected_game.as_ref().unwrap().prefix_path()));
+                } else {
+                    self.clear_selection_data(None);
                 }
             }
 

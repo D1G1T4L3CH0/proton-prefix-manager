@@ -1,7 +1,7 @@
 use keyvalues_parser::{Value, Vdf};
 use once_cell::sync::Lazy;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fs,
     path::{Path, PathBuf},
     sync::Mutex,
@@ -15,10 +15,14 @@ struct ManifestEntry {
 
 static MANIFEST_FILE_CACHE: Lazy<Mutex<HashMap<PathBuf, ManifestEntry>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static MANIFEST_FILE_ORDER: Lazy<Mutex<VecDeque<PathBuf>>> =
+    Lazy::new(|| Mutex::new(VecDeque::new()));
+const MANIFEST_CACHE_LIMIT: usize = 20;
 
 pub fn read_manifest_cached(path: &Path) -> Option<String> {
     let modified = fs::metadata(path).ok()?.modified().ok()?;
     let mut cache = MANIFEST_FILE_CACHE.lock().unwrap();
+    let mut order = MANIFEST_FILE_ORDER.lock().unwrap();
     if let Some(entry) = cache.get(path) {
         if entry.modified >= modified {
             return Some(entry.contents.clone());
@@ -32,12 +36,20 @@ pub fn read_manifest_cached(path: &Path) -> Option<String> {
             modified,
         },
     );
+    order.retain(|p| p != path);
+    order.push_back(path.to_path_buf());
+    if order.len() > MANIFEST_CACHE_LIMIT {
+        if let Some(old) = order.pop_front() {
+            cache.remove(&old);
+        }
+    }
     Some(contents)
 }
 
 pub fn update_manifest_cache(path: &Path, contents: &str) {
     if let Ok(modified) = fs::metadata(path).and_then(|m| m.modified()) {
         let mut cache = MANIFEST_FILE_CACHE.lock().unwrap();
+        let mut order = MANIFEST_FILE_ORDER.lock().unwrap();
         cache.insert(
             path.to_path_buf(),
             ManifestEntry {
@@ -45,10 +57,18 @@ pub fn update_manifest_cache(path: &Path, contents: &str) {
                 modified,
             },
         );
+        order.retain(|p| p != path);
+        order.push_back(path.to_path_buf());
+        if order.len() > MANIFEST_CACHE_LIMIT {
+            if let Some(old) = order.pop_front() {
+                cache.remove(&old);
+            }
+        }
     }
 }
 pub fn clear_manifest_cache() {
     MANIFEST_FILE_CACHE.lock().unwrap().clear();
+    MANIFEST_FILE_ORDER.lock().unwrap().clear();
 }
 
 pub fn parse_libraryfolders_vdf(vdf_path: &str) -> Option<Vec<PathBuf>> {
