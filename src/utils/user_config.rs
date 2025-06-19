@@ -1,7 +1,7 @@
 use crate::utils::steam_paths;
 use keyvalues_parser::{Value, Vdf};
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -15,10 +15,14 @@ struct ConfigEntry {
 
 static LOCALCONFIG_CACHE: Lazy<Mutex<HashMap<PathBuf, ConfigEntry>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+static LOCALCONFIG_ORDER: Lazy<Mutex<VecDeque<PathBuf>>> =
+    Lazy::new(|| Mutex::new(VecDeque::new()));
+const LOCALCONFIG_CACHE_LIMIT: usize = 10;
 
 fn read_localconfig_cached(path: &Path) -> Option<String> {
     let modified = fs::metadata(path).ok()?.modified().ok()?;
     let mut cache = LOCALCONFIG_CACHE.lock().unwrap();
+    let mut order = LOCALCONFIG_ORDER.lock().unwrap();
     if let Some(entry) = cache.get(path) {
         if entry.modified >= modified {
             return Some(entry.contents.clone());
@@ -32,12 +36,20 @@ fn read_localconfig_cached(path: &Path) -> Option<String> {
             modified,
         },
     );
+    order.retain(|p| p != path);
+    order.push_back(path.to_path_buf());
+    if order.len() > LOCALCONFIG_CACHE_LIMIT {
+        if let Some(old) = order.pop_front() {
+            cache.remove(&old);
+        }
+    }
     Some(contents)
 }
 
 pub fn update_localconfig_cache(path: &Path, contents: &str) {
     if let Ok(modified) = fs::metadata(path).and_then(|m| m.modified()) {
         let mut cache = LOCALCONFIG_CACHE.lock().unwrap();
+        let mut order = LOCALCONFIG_ORDER.lock().unwrap();
         cache.insert(
             path.to_path_buf(),
             ConfigEntry {
@@ -45,11 +57,19 @@ pub fn update_localconfig_cache(path: &Path, contents: &str) {
                 modified,
             },
         );
+        order.retain(|p| p != path);
+        order.push_back(path.to_path_buf());
+        if order.len() > LOCALCONFIG_CACHE_LIMIT {
+            if let Some(old) = order.pop_front() {
+                cache.remove(&old);
+            }
+        }
     }
 }
 
 pub fn clear_localconfig_cache() {
     LOCALCONFIG_CACHE.lock().unwrap().clear();
+    LOCALCONFIG_ORDER.lock().unwrap().clear();
 }
 /// Search Steam userdata directories for localconfig.vdf files.
 
