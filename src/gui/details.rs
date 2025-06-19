@@ -97,7 +97,7 @@ impl<'a> GameDetails<'a> {
         ui.add_space(8.0);
     }
 
-    fn prefix_tools_menu(
+    pub fn prefix_tools_menu(
         &self,
         ui: &mut egui::Ui,
         game: &GameInfo,
@@ -109,7 +109,7 @@ impl<'a> GameDetails<'a> {
         status_message: &mut Option<String>,
         status_time: &mut f64,
     ) {
-        menu::menu_button(ui, "Tools ▾", |ui| {
+        menu::menu_button(ui, "Prefix Tools ▾", |ui| {
             ui.menu_button("Prefix ▾", |ui| {
                 if ui.button("Backup").clicked() {
                     match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
@@ -509,10 +509,7 @@ impl<'a> GameDetails<'a> {
         delete_dialog_open: &mut bool,
         validation_dialog_open: &mut bool,
         validation_results: &mut Vec<CheckResult>,
-        tools: &BTreeMap<String, bool>,
         configs: &mut HashMap<u32, GameConfig>,
-        status_message: &mut Option<String>,
-        status_time: &mut f64,
     ) {
         if let Some(game) = self.game {
             self.game_title_bar(ui, game);
@@ -547,19 +544,7 @@ impl<'a> GameDetails<'a> {
                         ui.label("No prefix currently exists for this game.");
                     }
 
-                    ui.horizontal(|ui| {
-                        self.prefix_tools_menu(
-                            ui,
-                            game,
-                            restore_dialog_open,
-                            delete_dialog_open,
-                            validation_dialog_open,
-                            validation_results,
-                            tools,
-                            status_message,
-                            status_time,
-                        );
-                    });
+                    // Tools moved to the top toolbar
                 });
 
             // Proton Information
