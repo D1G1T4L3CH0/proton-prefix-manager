@@ -50,8 +50,8 @@ mod test_helpers;
 
 use cli::{Cli, Commands};
 use gui::ProtonPrefixManagerApp;
-use utils::output::determine_format;
 use utils::logging;
+use utils::output::determine_format;
 
 fn main() {
     let cli = Cli::parse();
@@ -123,7 +123,8 @@ fn main() {
         }
         None => {
             log::info!("Launching GUI...");
-            let native_options = NativeOptions::default();
+            let mut native_options = NativeOptions::default();
+            native_options.viewport = native_options.viewport.with_decorations(true);
             eframe::run_native(
                 "Proton Prefix Manager",
                 native_options,
