@@ -195,6 +195,8 @@ pub fn expected_localconfig_path() -> Option<PathBuf> {
     default_localconfig_path()
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 fn parse_compat_tool(contents: &str, app_id: u32) -> Option<String> {
     let vdf = Vdf::parse(contents).ok()?;
     let mut root = vdf.value.get_obj()?;
@@ -231,6 +233,8 @@ fn parse_compat_tool(contents: &str, app_id: u32) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 pub fn get_compat_tool(app_id: u32) -> Option<String> {
     for cfg in find_localconfig_files() {
         match read_localconfig_cached(&cfg) {
