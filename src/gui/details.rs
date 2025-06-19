@@ -640,6 +640,7 @@ impl<'a> GameDetails<'a> {
                 "⚙ Game Settings"
             };
             egui::CollapsingHeader::new(header_label)
+                .id_salt("game_settings_header")
                 .default_open(has_custom)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
@@ -660,7 +661,7 @@ impl<'a> GameDetails<'a> {
                         ui.label("Launch Options:");
                         ui.add(
                             egui::TextEdit::singleline(&mut cfg.launch_options)
-                                .id_source("launch_options")
+                                .id_salt("launch_options")
                                 .hint_text("e.g. PROTON_LOG=1"),
                         );
                     });
