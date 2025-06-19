@@ -253,6 +253,20 @@ impl eframe::App for ProtonPrefixManagerApp {
                     {
                         self.show_backup_manager = true;
                     }
+                    if let Some(game) = self.selected_game.as_ref() {
+                        let details = GameDetails::new(Some(game));
+                        details.prefix_tools_menu(
+                            ui,
+                            game,
+                            &mut self.restore_dialog_open,
+                            &mut self.delete_dialog_open,
+                            &mut self.validation_dialog_open,
+                            &mut self.validation_results,
+                            &self.tool_status,
+                            &mut self.status_message,
+                            &mut self.last_status_update,
+                        );
+                    }
                 });
             });
 
@@ -356,10 +370,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                             &mut self.delete_dialog_open,
                             &mut self.validation_dialog_open,
                             &mut self.validation_results,
-                            &self.tool_status,
                             &mut self.config_cache,
-                            &mut self.status_message,
-                            &mut self.last_status_update,
                         );
                     });
             });
