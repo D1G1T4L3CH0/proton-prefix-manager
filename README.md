@@ -57,6 +57,12 @@ Open a prefix in your file manager:
 proton-prefix-manager open 620
 ```
 
+Open the Steam userdata directory for a game:
+
+```bash
+proton-prefix-manager userdata 620
+```
+
 Back up a prefix (stored in `~/.local/share/proton-prefix-manager/backups`):
 
 ```bash

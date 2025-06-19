@@ -122,6 +122,23 @@ pub fn find_proton_prefix(appid: u32, libraries: &[SteamLibrary]) -> Option<Path
     None
 }
 
+/// Finds the Steam userdata directory for a specific AppID.
+///
+/// This uses the active Steam user's `localconfig.vdf` location to
+/// determine the account ID and checks all detected `userdata` bases.
+/// Returns `Some(PathBuf)` if the directory exists.
+pub fn find_userdata_dir(appid: u32) -> Option<PathBuf> {
+    if let Some(cfg) = crate::utils::user_config::expected_localconfig_path() {
+        if let Some(user_dir) = cfg.parent().and_then(|p| p.parent()) {
+            let candidate = user_dir.join(appid.to_string());
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
 /// Searches for games by name.
 ///
 /// # Arguments
@@ -322,5 +339,34 @@ mod tests {
         // Test with non-existent prefix
         let result = find_proton_prefix(999999, &libraries);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_userdata_dir() {
+        let _guard = crate::test_helpers::TEST_MUTEX.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let home = dir.path();
+        let userdata = home.join(".steam/steam/userdata/111111111");
+        std::fs::create_dir_all(&userdata).unwrap();
+        std::fs::create_dir_all(userdata.join("123456")).unwrap();
+        let config_dir = home.join(".steam/steam/config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        let login = config_dir.join("loginusers.vdf");
+        let contents = "\"users\" { \"111111111\" { \"MostRecent\" \"1\" } }";
+        std::fs::write(&login, contents).unwrap();
+
+        let old_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", home);
+
+        let result = find_userdata_dir(123456);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), userdata.join("123456"));
+
+        let result = find_userdata_dir(999999);
+        assert!(result.is_none());
+
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 }
