@@ -84,15 +84,10 @@ impl<'a> GameList<'a> {
                 return;
             }
 
-            // Prepare sorted games based on the selected option
-            let mut sorted_games: Vec<&GameInfo> = self.games.iter().collect();
-            sorted_games.sort_by(|a, b| compare_games(a, b, *sort_option));
-
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    // Render all items
-                    for game in sorted_games {
+                    for game in self.games {
                         let is_selected = selected_game
                             .as_ref()
                             .map_or(false, |g| g.app_id() == game.app_id());
