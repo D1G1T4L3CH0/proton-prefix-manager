@@ -2,7 +2,7 @@ use super::advanced_search::{advanced_search_dialog, AdvancedSearchState};
 use super::backup_manager::BackupManagerWindow;
 use super::details::GameConfig;
 use super::details::GameDetails;
-use super::game_list::GameList;
+use super::game_list::{compare_games, GameList};
 use super::SortOption;
 use crate::core::models::GameInfo;
 use crate::core::steam;
@@ -14,8 +14,6 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::fs;
-use std::time::SystemTime;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -99,31 +97,9 @@ impl ProtonPrefixManagerApp {
     }
 
     fn sort_filtered_games(&mut self) {
-        match self.sort_option {
-            SortOption::NameAsc => {
-                self.filtered_games
-                    .sort_by(|a, b| a.name().to_lowercase().cmp(&b.name().to_lowercase()));
-            }
-            SortOption::NameDesc => {
-                self.filtered_games
-                    .sort_by(|a, b| b.name().to_lowercase().cmp(&a.name().to_lowercase()));
-            }
-            SortOption::ModifiedAsc | SortOption::ModifiedDesc => {
-                self.filtered_games.sort_by(|a, b| {
-                    let ta = fs::metadata(a.prefix_path())
-                        .and_then(|m| m.modified())
-                        .unwrap_or(SystemTime::UNIX_EPOCH);
-                    let tb = fs::metadata(b.prefix_path())
-                        .and_then(|m| m.modified())
-                        .unwrap_or(SystemTime::UNIX_EPOCH);
-                    if self.sort_option == SortOption::ModifiedAsc {
-                        ta.cmp(&tb)
-                    } else {
-                        tb.cmp(&ta)
-                    }
-                });
-            }
-        }
+        let opt = self.sort_option;
+        self.filtered_games
+            .sort_by(|a, b| compare_games(a, b, opt));
     }
 
     fn search_games(&mut self) {

@@ -1,5 +1,6 @@
 use crate::core::models::GameInfo;
 use eframe::egui;
+use std::cmp::Ordering;
 use std::fs;
 use std::time::SystemTime;
 
@@ -19,6 +20,32 @@ impl SortOption {
             SortOption::NameDesc => "Name \u{2193}",
             SortOption::ModifiedAsc => "Last Modified \u{2191}",
             SortOption::ModifiedDesc => "Last Modified \u{2193}",
+        }
+    }
+}
+
+pub(super) fn compare_games(a: &GameInfo, b: &GameInfo, sort: SortOption) -> Ordering {
+    match sort {
+        SortOption::NameAsc => a
+            .name()
+            .to_lowercase()
+            .cmp(&b.name().to_lowercase()),
+        SortOption::NameDesc => b
+            .name()
+            .to_lowercase()
+            .cmp(&a.name().to_lowercase()),
+        SortOption::ModifiedAsc | SortOption::ModifiedDesc => {
+            let ta = fs::metadata(a.prefix_path())
+                .and_then(|m| m.modified())
+                .unwrap_or(SystemTime::UNIX_EPOCH);
+            let tb = fs::metadata(b.prefix_path())
+                .and_then(|m| m.modified())
+                .unwrap_or(SystemTime::UNIX_EPOCH);
+            if matches!(sort, SortOption::ModifiedAsc) {
+                ta.cmp(&tb)
+            } else {
+                tb.cmp(&ta)
+            }
         }
     }
 }
@@ -65,30 +92,7 @@ impl<'a> GameList<'a> {
 
             // Prepare sorted games based on the selected option
             let mut sorted_games: Vec<&GameInfo> = self.games.iter().collect();
-            match sort_option {
-                SortOption::NameAsc => {
-                    sorted_games.sort_by(|a, b| a.name().to_lowercase().cmp(&b.name().to_lowercase()));
-                }
-                SortOption::NameDesc => {
-                    sorted_games.sort_by(|a, b| b.name().to_lowercase().cmp(&a.name().to_lowercase()));
-                }
-                SortOption::ModifiedAsc | SortOption::ModifiedDesc => {
-                    let mut with_time: Vec<(&GameInfo, SystemTime)> = sorted_games
-                        .iter()
-                        .map(|g| {
-                            let time = fs::metadata(g.prefix_path())
-                                .and_then(|m| m.modified())
-                                .unwrap_or(SystemTime::UNIX_EPOCH);
-                            (*g, time)
-                        })
-                        .collect();
-                    with_time.sort_by_key(|(_, t)| *t);
-                    if matches!(sort_option, SortOption::ModifiedDesc) {
-                        with_time.reverse();
-                    }
-                    sorted_games = with_time.into_iter().map(|(g, _)| g).collect();
-                }
-            }
+            sorted_games.sort_by(|a, b| compare_games(a, b, *sort_option));
 
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
