@@ -2,6 +2,7 @@ use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::{manifest as manifest_utils, user_config};
 use eframe::egui;
+use eframe::egui::Modal;
 use std::collections::HashMap;
 use std::fs;
 
@@ -223,12 +224,25 @@ pub fn advanced_search_dialog(
     games: &[GameInfo],
     selected: &mut Option<GameInfo>,
 ) {
-    let mut window_open = *open;
+    if !*open {
+        return;
+    }
+
+    let mut should_close = false;
     let mut close_window = false;
-    egui::Window::new("Advanced Search")
-        .open(&mut window_open)
-        .resizable(true)
+
+    let response = Modal::new(egui::Id::new("advanced_search"))
+        .frame(egui::Frame::window(&ctx.style()))
         .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading("Advanced Search");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button("Close").clicked() {
+                        should_close = true;
+                    }
+                });
+            });
+            ui.separator();
             ui.horizontal(|ui| {
                 ui.label("Search:");
                 let resp = ui.text_edit_singleline(&mut state.query);
@@ -291,8 +305,12 @@ pub fn advanced_search_dialog(
                 }
             });
         });
+
     if close_window {
-        window_open = false;
+        should_close = true;
     }
-    *open = window_open;
+
+    if response.should_close() || should_close {
+        *open = false;
+    }
 }

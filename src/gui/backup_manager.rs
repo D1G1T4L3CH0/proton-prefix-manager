@@ -1,6 +1,7 @@
 use crate::core::{models::GameInfo, steam};
 use crate::utils::backup as backup_utils;
 use eframe::egui;
+use eframe::egui::Modal;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tinyfiledialogs as tfd;
@@ -125,10 +126,19 @@ impl BackupManagerWindow {
         if self.needs_refresh {
             self.refresh(games);
         }
-        egui::Window::new("Prefix Backups")
-            .open(open)
-            .vscroll(true)
+
+        let mut should_close = false;
+        let response = Modal::new(egui::Id::new("backup_manager"))
+            .frame(egui::Frame::window(&ctx.style()))
             .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Prefix Backups");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Close").clicked() {
+                            should_close = true;
+                        }
+                    });
+                });
                 ui.horizontal(|ui| {
                     let delete_enabled = self.has_selection();
                     if ui.add_enabled(delete_enabled, egui::Button::new("Delete Selected")).clicked() {
@@ -195,5 +205,9 @@ impl BackupManagerWindow {
                     self.confirm_delete_all = false;
                 }
             });
+
+        if response.should_close() || should_close {
+            *open = false;
+        }
     }
 }
