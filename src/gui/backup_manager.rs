@@ -184,7 +184,19 @@ impl BackupManagerWindow {
                                     }
                                 }
                                 if ui.button("Delete").clicked() {
-                                    let _ = backup_utils::delete_backup(&entry.path);
+                                    match backup_utils::delete_backup(&entry.path) {
+                                        Ok(_) => tfd::message_box_ok(
+                                            "Delete",
+                                            "Backup removed",
+                                            tfd::MessageBoxIcon::Info,
+                                        ),
+                                        Err(e) => tfd::message_box_ok(
+                                            "Delete failed",
+                                            &format!("{}", e),
+                                            tfd::MessageBoxIcon::Error,
+                                        ),
+                                    };
+                                    self.needs_refresh = true;
                                 }
                             });
                             ui.checkbox(&mut entry.selected, "");
