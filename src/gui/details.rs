@@ -8,6 +8,7 @@ use crate::utils::steam_paths;
 use crate::utils::terminal;
 use crate::utils::user_config;
 use eframe::egui;
+use eframe::egui::Modal;
 use egui::menu;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -336,9 +337,23 @@ impl<'a> GameDetails<'a> {
     }
 
     fn restore_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) {
-        egui::Window::new("Select Backup to Restore")
-            .collapsible(false)
+        if !*open {
+            return;
+        }
+
+        let mut should_close = false;
+        let response = Modal::new(egui::Id::new("restore_modal"))
+            .frame(egui::Frame::window(&ctx.style()))
             .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Select Backup to Restore");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Close").clicked() {
+                            should_close = true;
+                        }
+                    });
+                });
+                ui.separator();
                 let backups = backup_utils::list_backups(game.app_id());
                 if backups.is_empty() {
                     ui.label("No backups found");
@@ -358,20 +373,35 @@ impl<'a> GameDetails<'a> {
                                     tfd::MessageBoxIcon::Error,
                                 ),
                             };
-                            *open = false;
+                            should_close = true;
                         }
                     }
                 }
-                if ui.button("Close").clicked() {
-                    *open = false;
-                }
             });
+
+        if response.should_close() || should_close {
+            *open = false;
+        }
     }
 
     fn delete_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) {
-        egui::Window::new("Select Backup to Delete")
-            .collapsible(false)
+        if !*open {
+            return;
+        }
+
+        let mut should_close = false;
+        let response = Modal::new(egui::Id::new("delete_modal"))
+            .frame(egui::Frame::window(&ctx.style()))
             .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Select Backup to Delete");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Close").clicked() {
+                            should_close = true;
+                        }
+                    });
+                });
+                ui.separator();
                 let backups = backup_utils::list_backups(game.app_id());
                 if backups.is_empty() {
                     ui.label("No backups found");
@@ -391,21 +421,35 @@ impl<'a> GameDetails<'a> {
                                     tfd::MessageBoxIcon::Error,
                                 ),
                             };
-                            *open = false;
+                            should_close = true;
                         }
                     }
                 }
-                if ui.button("Close").clicked() {
-                    *open = false;
-                }
             });
+
+        if response.should_close() || should_close {
+            *open = false;
+        }
     }
 
     fn validate_window(&self, ctx: &egui::Context, results: &[CheckResult], open: &mut bool) {
-        egui::Window::new("Prefix Validation")
-            .collapsible(false)
-            .resizable(true)
+        if !*open {
+            return;
+        }
+
+        let mut should_close = false;
+        let response = Modal::new(egui::Id::new("validate_modal"))
+            .frame(egui::Frame::window(&ctx.style()))
             .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Prefix Validation");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Close").clicked() {
+                            should_close = true;
+                        }
+                    });
+                });
+                ui.separator();
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for r in results {
                         let (icon, color) = match r.status {
@@ -444,11 +488,11 @@ impl<'a> GameDetails<'a> {
 
                 ui.separator();
                 ui.label(summary);
-
-                if ui.button("Close").clicked() {
-                    *open = false;
-                }
             });
+
+        if response.should_close() || should_close {
+            *open = false;
+        }
     }
 
     pub fn show(
