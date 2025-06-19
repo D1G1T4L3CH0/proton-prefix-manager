@@ -120,7 +120,7 @@ pub fn find_proton_prefix(appid: u32, libraries: &[SteamLibrary]) -> Option<Path
 /// determine the account ID and checks all detected `userdata` bases.
 /// Returns `Some(PathBuf)` if the directory exists.
 pub fn find_userdata_dir(appid: u32) -> Option<PathBuf> {
-    if let Some(cfg) = crate::utils::user_config::expected_localconfig_path() {
+    if let Some(cfg) = user_config::expected_localconfig_path() {
         if let Some(user_dir) = cfg.parent().and_then(|p| p.parent()) {
             let candidate = user_dir.join(appid.to_string());
             if candidate.exists() {

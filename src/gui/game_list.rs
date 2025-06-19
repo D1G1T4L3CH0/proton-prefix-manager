@@ -66,7 +66,7 @@ impl<'a> GameList<'a> {
             ui.horizontal(|ui| {
                 ui.label("Sort by:");
                 let prev = *sort_option;
-                egui::ComboBox::from_id_source("sort_combo")
+                egui::ComboBox::from_id_salt("sort_combo")
                     .selected_text(sort_option.label())
                     .show_ui(ui, |ui| {
                         ui.selectable_value(sort_option, SortOption::ModifiedDesc, SortOption::ModifiedDesc.label());
