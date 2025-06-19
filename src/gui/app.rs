@@ -2,6 +2,7 @@ use super::advanced_search::{advanced_search_dialog, AdvancedSearchState};
 use super::backup_manager::BackupManagerWindow;
 use super::details::{GameConfig, GameDetails, PrefixInfo};
 use super::game_list::{compare_games, GameList};
+use super::runtime_cleaner::RuntimeCleanerWindow;
 use super::SortOption;
 use crate::core::models::GameInfo;
 use crate::core::steam;
@@ -36,6 +37,8 @@ pub struct ProtonPrefixManagerApp {
     prefix_cache: HashMap<u32, PrefixInfo>,
     show_backup_manager: bool,
     backup_manager: BackupManagerWindow,
+    show_runtime_cleaner: bool,
+    runtime_cleaner: RuntimeCleanerWindow,
     show_advanced_search: bool,
     adv_state: AdvancedSearchState,
     sort_option: SortOption,
@@ -69,6 +72,8 @@ impl Default for ProtonPrefixManagerApp {
             prefix_cache: HashMap::new(),
             show_backup_manager: false,
             backup_manager: BackupManagerWindow::new(),
+            show_runtime_cleaner: false,
+            runtime_cleaner: RuntimeCleanerWindow::new(),
             show_advanced_search: false,
             adv_state: AdvancedSearchState::default(),
             sort_option: SortOption::ModifiedDesc,
@@ -267,6 +272,13 @@ impl eframe::App for ProtonPrefixManagerApp {
                     {
                         self.show_backup_manager = true;
                     }
+                    if ui
+                        .button("Steam Runtime Cleaner")
+                        .on_hover_text("Find leftover data to delete.")
+                        .clicked()
+                    {
+                        self.show_runtime_cleaner = true;
+                    }
                     if let Some(game) = self.selected_game.as_ref() {
                         let details = GameDetails::new(Some(game));
                         details.prefix_tools_menu(
@@ -371,8 +383,12 @@ impl eframe::App for ProtonPrefixManagerApp {
                         self.selected_game = Some(updated);
                     }
                     self.config_cache.remove(&id);
-                    self.prefix_cache
-                        .insert(id, super::details::collect_prefix_info(self.selected_game.as_ref().unwrap().prefix_path()));
+                    self.prefix_cache.insert(
+                        id,
+                        super::details::collect_prefix_info(
+                            self.selected_game.as_ref().unwrap().prefix_path(),
+                        ),
+                    );
                 } else {
                     self.clear_selection_data(None);
                 }
@@ -403,6 +419,9 @@ impl eframe::App for ProtonPrefixManagerApp {
             self.backup_manager
                 .show(ctx, &mut self.show_backup_manager, None);
         }
+
+        self.runtime_cleaner
+            .show(ctx, &mut self.show_runtime_cleaner);
 
         if let Ok(games) = self.installed_games.lock() {
             if self.show_advanced_search {
