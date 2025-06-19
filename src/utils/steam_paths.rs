@@ -75,3 +75,19 @@ pub fn config_dirs() -> Vec<PathBuf> {
 
     dirs
 }
+
+/// Directories for custom compatibility tools like GE-Proton.
+pub fn compatibilitytools_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+    for base in steam_base_dirs() {
+        let p = base.join("compatibilitytools.d");
+        if p.exists() {
+            let canon = fs::canonicalize(&p).unwrap_or(p.clone());
+            if seen.insert(canon.clone()) {
+                dirs.push(canon);
+            }
+        }
+    }
+    dirs
+}
