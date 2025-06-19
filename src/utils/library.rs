@@ -118,6 +118,16 @@ pub fn parse_appmanifest(path: &Path) -> Option<(u32, String, u64)> {
     Some((appid, name, last_played))
 }
 
+/// Parse only the AppID and installdir from an appmanifest file.
+pub fn parse_appmanifest_installdir(path: &Path) -> Option<(u32, String)> {
+    let contents = read_manifest_cached(path)?;
+    let vdf = Vdf::parse(&contents).ok()?;
+    let app_state = vdf.value.get_obj()?;
+    let appid = app_state.get("appid")?.first()?.get_str()?.parse().ok()?;
+    let installdir = app_state.get("installdir")?.first()?.get_str()?.to_string();
+    Some((appid, installdir))
+}
+
 // Cache for game names to avoid repeated file reads
 
 #[cfg(test)]
@@ -190,5 +200,25 @@ mod tests {
         assert_eq!(libs.len(), 2);
         assert!(libs.contains(&lib1));
         assert!(libs.contains(&lib2));
+    }
+
+    #[test]
+    fn test_parse_installdir() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("appmanifest_789.acf");
+        let content = r#"
+        "AppState"
+        {
+            "appid"     "789"
+            "name"      "Test Game"
+            "installdir" "TestGame"
+        }
+        "#;
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+
+        let result = parse_appmanifest_installdir(&file_path).unwrap();
+        assert_eq!(result.0, 789);
+        assert_eq!(result.1, "TestGame");
     }
 }
