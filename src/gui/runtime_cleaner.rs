@@ -187,7 +187,8 @@ impl RuntimeCleanerWindow {
                         if !item.verified {
                             ui.label(
                                 egui::RichText::new("[unverified]").color(egui::Color32::YELLOW),
-                            );
+                            )
+                            .on_hover_text("Could not verify this is a valid Proton version.");
                         }
                     });
                 }
