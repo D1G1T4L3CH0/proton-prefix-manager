@@ -100,10 +100,16 @@ Clear shader cache:
 proton-prefix-manager clear-cache 620
 ```
 
-Run protontricks:
+Run protontricks (opens Protontricks GUI when no command is supplied):
 
 ```bash
-proton-prefix-manager protontricks 620
+proton-prefix-manager protontricks 620 --gui
+```
+
+Run protontricks with a specific Winetricks verb:
+
+```bash
+proton-prefix-manager protontricks 620 dotnet40
 ```
 
 Launch winecfg:

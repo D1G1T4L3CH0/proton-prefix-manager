@@ -7,11 +7,12 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 #[cfg(not(test))]
-fn run_protontricks(appid: u32, args: &[String]) -> std::io::Result<()> {
-    let status = std::process::Command::new("protontricks")
-        .arg(appid.to_string())
-        .args(args)
-        .status()?;
+fn run_protontricks(appid: Option<u32>, args: &[String]) -> std::io::Result<()> {
+    let mut cmd = std::process::Command::new("protontricks");
+    if let Some(id) = appid {
+        cmd.arg(id.to_string());
+    }
+    let status = cmd.args(args).status()?;
     if status.success() {
         Ok(())
     } else {
@@ -23,10 +24,11 @@ fn run_protontricks(appid: u32, args: &[String]) -> std::io::Result<()> {
 }
 
 #[cfg(test)]
-pub static PROTONTRICKS_CALLS: Lazy<Mutex<Vec<(u32, Vec<String>)>>> = Lazy::new(|| Mutex::new(Vec::new()));
+pub static PROTONTRICKS_CALLS: Lazy<Mutex<Vec<(Option<u32>, Vec<String>)>>> =
+    Lazy::new(|| Mutex::new(Vec::new()));
 
 #[cfg(test)]
-fn run_protontricks(appid: u32, args: &[String]) -> std::io::Result<()> {
+fn run_protontricks(appid: Option<u32>, args: &[String]) -> std::io::Result<()> {
     PROTONTRICKS_CALLS
         .lock()
         .unwrap()
@@ -46,7 +48,11 @@ pub fn execute(appid: u32, args: &[String]) {
     match steam::get_steam_libraries() {
         Ok(libraries) => {
             if steam::find_proton_prefix(appid, &libraries).is_some() {
-                if let Err(e) = run_protontricks(appid, args) {
+                if args.is_empty() {
+                    if let Err(e) = run_protontricks(None, &["--gui".to_string()]) {
+                        eprintln!("❌ Failed to run protontricks: {}", e);
+                    }
+                } else if let Err(e) = run_protontricks(Some(appid), args) {
                     eprintln!("❌ Failed to run protontricks: {}", e);
                 }
             } else {
@@ -79,10 +85,12 @@ mod tests {
 
         let calls = PROTONTRICKS_CALLS.lock().unwrap();
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].0, appid);
+        assert_eq!(calls[0].0, Some(appid));
         assert_eq!(calls[0].1, vec!["-v".to_string()]);
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 
     #[test]
@@ -101,6 +109,30 @@ mod tests {
         let calls = PROTONTRICKS_CALLS.lock().unwrap();
         assert!(calls.is_empty());
 
-        if let Some(h) = old_home { std::env::set_var("HOME", h); }
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
+    }
+
+    #[test]
+    fn test_execute_gui_on_empty_args() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        crate::core::steam::clear_caches();
+        let appid = 1111;
+        let (home, _prefix, _) = setup_steam_env(appid, false);
+        let old_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", home.path());
+
+        PROTONTRICKS_CALLS.lock().unwrap().clear();
+        execute(appid, &[]);
+
+        let calls = PROTONTRICKS_CALLS.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, None);
+        assert_eq!(calls[0].1, vec!["--gui".to_string()]);
+
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
     }
 }
