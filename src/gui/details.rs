@@ -293,6 +293,9 @@ impl<'a> GameDetails<'a> {
                 user_config::set_launch_options(app_id, &cfg.launch_options)?;
                 if let Some(p) = &cfg.proton {
                     contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", p);
+                    user_config::set_compat_tool(app_id, p)?;
+                } else {
+                    let _ = user_config::clear_compat_tool(app_id);
                 }
                 let cloud_val = if cfg.cloud_sync { "1" } else { "0" };
                 contents =
