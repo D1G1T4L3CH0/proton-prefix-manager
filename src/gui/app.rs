@@ -1,7 +1,6 @@
 use super::advanced_search::{advanced_search_dialog, AdvancedSearchState};
 use super::backup_manager::BackupManagerWindow;
-use super::details::GameConfig;
-use super::details::GameDetails;
+use super::details::{GameConfig, GameDetails, PrefixInfo};
 use super::game_list::{compare_games, GameList};
 use super::SortOption;
 use crate::core::models::GameInfo;
@@ -34,6 +33,7 @@ pub struct ProtonPrefixManagerApp {
     tool_status: BTreeMap<String, bool>,
     last_tool_scan: f64,
     config_cache: HashMap<u32, GameConfig>,
+    prefix_cache: HashMap<u32, PrefixInfo>,
     show_backup_manager: bool,
     backup_manager: BackupManagerWindow,
     show_advanced_search: bool,
@@ -66,6 +66,7 @@ impl Default for ProtonPrefixManagerApp {
             },
             last_tool_scan: 0.0,
             config_cache: HashMap::new(),
+            prefix_cache: HashMap::new(),
             show_backup_manager: false,
             backup_manager: BackupManagerWindow::new(),
             show_advanced_search: false,
@@ -356,6 +357,8 @@ impl eframe::App for ProtonPrefixManagerApp {
                         self.selected_game = Some(updated);
                     }
                     self.config_cache.remove(&id);
+                    self.prefix_cache
+                        .insert(id, super::details::collect_prefix_info(self.selected_game.as_ref().unwrap().prefix_path()));
                 }
             }
 
@@ -371,6 +374,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                             &mut self.validation_dialog_open,
                             &mut self.validation_results,
                             &mut self.config_cache,
+                            &mut self.prefix_cache,
                         );
                     });
             });
