@@ -47,16 +47,41 @@ fn detect_proton_version(prefix_path: &Path) -> Option<String> {
 }
 
 fn proton_runtime_exists(version: &str) -> bool {
+    let mut candidates = vec![version.to_string()];
+
+    let normalized = version.trim();
+    if !normalized.to_lowercase().starts_with("proton") {
+        let base = normalized
+            .split(|c| c == '-' || c == ' ')
+            .next()
+            .unwrap_or(normalized);
+        candidates.push(format!("Proton {}", base));
+    } else {
+        let rest = normalized
+            .trim_start_matches("Proton")
+            .trim()
+            .split(|c| c == '-' || c == ' ')
+            .next()
+            .unwrap_or("");
+        if !rest.is_empty() {
+            candidates.push(format!("Proton {}", rest));
+        }
+    }
+
     if let Ok(libs) = steam::get_steam_libraries() {
-        for lib in libs {
-            if lib.join("steamapps/common").join(version).exists() {
-                return true;
+        for cand in &candidates {
+            for lib in &libs {
+                if lib.join("steamapps/common").join(cand).exists() {
+                    return true;
+                }
             }
         }
     }
     for dir in steam_paths::compatibilitytools_dirs() {
-        if dir.join(version).exists() {
-            return true;
+        for cand in &candidates {
+            if dir.join(cand).exists() {
+                return true;
+            }
         }
     }
     false
