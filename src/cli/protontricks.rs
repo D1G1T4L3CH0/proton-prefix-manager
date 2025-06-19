@@ -49,7 +49,7 @@ pub fn execute(appid: u32, args: &[String]) {
         Ok(libraries) => {
             if steam::find_proton_prefix(appid, &libraries).is_some() {
                 if args.is_empty() {
-                    if let Err(e) = run_protontricks(None, &["--gui".to_string()]) {
+                    if let Err(e) = run_protontricks(Some(appid), &["--gui".to_string()]) {
                         eprintln!("❌ Failed to run protontricks: {}", e);
                     }
                 } else if let Err(e) = run_protontricks(Some(appid), args) {
@@ -128,7 +128,7 @@ mod tests {
 
         let calls = PROTONTRICKS_CALLS.lock().unwrap();
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].0, None);
+        assert_eq!(calls[0].0, Some(appid));
         assert_eq!(calls[0].1, vec!["--gui".to_string()]);
 
         if let Some(h) = old_home {
