@@ -35,7 +35,7 @@ Run the program without arguments to launch the GUI:
 proton-prefix-manager
 ```
 
-The GUI lists your installed Steam games and shows details about each prefix. You can copy or open the prefix path, run Protontricks or launch `winecfg` for the selected game, and follow external links such as SteamDB or ProtonDB. Game settings let you choose from built‑in and custom Proton versions discovered in `compatibilitytools.d`.
+The GUI lists your installed Steam games and shows details about each prefix. You can copy or open the prefix path, run Protontricks for the selected game, launch `winecfg`, and follow external links such as SteamDB or ProtonDB. Game settings let you choose from built‑in and custom Proton versions discovered in `compatibilitytools.d`.
 
 ### Command line interface
 
@@ -100,7 +100,7 @@ Clear shader cache:
 proton-prefix-manager clear-cache 620
 ```
 
-Run protontricks (opens Protontricks GUI when no command is supplied):
+Run protontricks in GUI mode for a specific AppID:
 
 ```bash
 proton-prefix-manager protontricks 620 --gui
