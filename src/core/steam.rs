@@ -5,24 +5,21 @@
 
 use crate::core::models::{GameInfo, SteamLibrary};
 use crate::error::{Error, Result};
-use crate::utils::library;
+use crate::utils::{library, user_config};
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::time::SystemTime;
 
 // Cache for Steam libraries with timestamp
 struct LibraryCache {
     libraries: Vec<SteamLibrary>,
-    timestamp: SystemTime,
 }
 
 // Cache for game manifests with timestamp
 struct ManifestCache {
     games: Vec<GameInfo>,
-    timestamp: SystemTime,
 }
 
 // Global caches with mutex protection
@@ -33,10 +30,9 @@ static MANIFEST_CACHE: Lazy<Mutex<Option<ManifestCache>>> = Lazy::new(|| Mutex::
 pub fn clear_caches() {
     *LIBRARY_CACHE.lock().unwrap() = None;
     *MANIFEST_CACHE.lock().unwrap() = None;
+    library::clear_manifest_cache();
+    user_config::clear_localconfig_cache();
 }
-
-// Cache duration (5 seconds)
-const CACHE_DURATION: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// Gets a list of Steam library folders with caching.
 ///
@@ -54,11 +50,8 @@ const CACHE_DURATION: std::time::Duration = std::time::Duration::from_secs(5);
 pub fn get_steam_libraries() -> Result<Vec<SteamLibrary>> {
     let mut cache = LIBRARY_CACHE.lock().unwrap();
 
-    // Check if cache is valid
     if let Some(cached) = &*cache {
-        if SystemTime::now().duration_since(cached.timestamp).unwrap() < CACHE_DURATION {
-            return Ok(cached.libraries.clone());
-        }
+        return Ok(cached.libraries.clone());
     }
 
     // Cache invalid or empty, fetch fresh data
@@ -95,7 +88,6 @@ pub fn get_steam_libraries() -> Result<Vec<SteamLibrary>> {
     // Update cache
     *cache = Some(LibraryCache {
         libraries: libraries.clone(),
-        timestamp: SystemTime::now(),
     });
 
     Ok(libraries)
@@ -244,11 +236,8 @@ fn load_games_from_library(library: &SteamLibrary) -> Result<Vec<GameInfo>> {
 pub fn load_games_from_libraries(libraries: &[SteamLibrary]) -> Result<Vec<GameInfo>> {
     let mut cache = MANIFEST_CACHE.lock().unwrap();
 
-    // Check if cache is valid
     if let Some(cached) = &*cache {
-        if SystemTime::now().duration_since(cached.timestamp).unwrap() < CACHE_DURATION {
-            return Ok(cached.games.clone());
-        }
+        return Ok(cached.games.clone());
     }
 
     // Cache invalid or empty, fetch fresh data
@@ -271,7 +260,6 @@ pub fn load_games_from_libraries(libraries: &[SteamLibrary]) -> Result<Vec<GameI
     // Update cache
     *cache = Some(ManifestCache {
         games: games.clone(),
-        timestamp: SystemTime::now(),
     });
 
     Ok(games)

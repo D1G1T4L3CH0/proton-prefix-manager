@@ -2,11 +2,11 @@ use crate::cli::{protontricks, winecfg};
 use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::backup as backup_utils;
-use crate::utils::manifest as manifest_utils;
 use crate::utils::prefix_validator::{self, CheckResult, CheckStatus};
 use crate::utils::steam_paths;
 use crate::utils::terminal;
 use crate::utils::user_config;
+use crate::utils::{library, manifest as manifest_utils};
 use eframe::egui;
 use eframe::egui::Modal;
 use egui::menu;
@@ -251,7 +251,9 @@ impl<'a> GameDetails<'a> {
                 .steamapps_path()
                 .join(format!("appmanifest_{}.acf", app_id));
             if manifest.exists() {
-                let contents = fs::read_to_string(&manifest)?;
+                let contents = library::read_manifest_cached(&manifest).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::Other, "failed to read manifest")
+                })?;
                 let proton = manifest_utils::get_value(&contents, "CompatToolOverride");
                 let launch = user_config::get_launch_options(app_id)
                     .or_else(|| manifest_utils::get_value(&contents, "LaunchOptions"))
@@ -284,7 +286,9 @@ impl<'a> GameDetails<'a> {
                 .steamapps_path()
                 .join(format!("appmanifest_{}.acf", app_id));
             if manifest.exists() {
-                let mut contents = fs::read_to_string(&manifest)?;
+                let mut contents = library::read_manifest_cached(&manifest).ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::Other, "failed to read manifest")
+                })?;
                 contents = manifest_utils::update_or_insert(
                     &contents,
                     "LaunchOptions",
@@ -303,7 +307,8 @@ impl<'a> GameDetails<'a> {
                 let auto_val = if cfg.auto_update { "0" } else { "1" };
                 contents =
                     manifest_utils::update_or_insert(&contents, "AutoUpdateBehavior", auto_val);
-                fs::write(&manifest, contents)?;
+                fs::write(&manifest, contents.as_bytes())?;
+                library::update_manifest_cache(&manifest, &contents);
                 return Ok(());
             }
         }

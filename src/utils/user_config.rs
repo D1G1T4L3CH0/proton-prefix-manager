@@ -1,9 +1,56 @@
 use crate::utils::steam_paths;
 use keyvalues_parser::{Value, Vdf};
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::SystemTime;
 
+struct ConfigEntry {
+    contents: String,
+    modified: SystemTime,
+}
+
+static LOCALCONFIG_CACHE: Lazy<Mutex<HashMap<PathBuf, ConfigEntry>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn read_localconfig_cached(path: &Path) -> Option<String> {
+    let modified = fs::metadata(path).ok()?.modified().ok()?;
+    let mut cache = LOCALCONFIG_CACHE.lock().unwrap();
+    if let Some(entry) = cache.get(path) {
+        if entry.modified >= modified {
+            return Some(entry.contents.clone());
+        }
+    }
+    let contents = fs::read_to_string(path).ok()?;
+    cache.insert(
+        path.to_path_buf(),
+        ConfigEntry {
+            contents: contents.clone(),
+            modified,
+        },
+    );
+    Some(contents)
+}
+
+pub fn update_localconfig_cache(path: &Path, contents: &str) {
+    if let Ok(modified) = fs::metadata(path).and_then(|m| m.modified()) {
+        let mut cache = LOCALCONFIG_CACHE.lock().unwrap();
+        cache.insert(
+            path.to_path_buf(),
+            ConfigEntry {
+                contents: contents.to_string(),
+                modified,
+            },
+        );
+    }
+}
+
+pub fn clear_localconfig_cache() {
+    LOCALCONFIG_CACHE.lock().unwrap().clear();
+}
 /// Search Steam userdata directories for localconfig.vdf files.
 
 /// Converts a 64-bit SteamID into the 32-bit account ID used by Steam's
@@ -166,13 +213,13 @@ fn parse_compat_tool(contents: &str, app_id: u32) -> Option<String> {
 
 pub fn get_compat_tool(app_id: u32) -> Option<String> {
     for cfg in find_localconfig_files() {
-        match fs::read_to_string(&cfg) {
-            Ok(contents) => {
+        match read_localconfig_cached(&cfg) {
+            Some(contents) => {
                 if let Some(val) = parse_compat_tool(&contents, app_id) {
                     return Some(val);
                 }
             }
-            Err(_) => {}
+            None => {}
         }
     }
     None
@@ -245,22 +292,26 @@ pub fn set_compat_tool(app_id: u32, value: &str) -> io::Result<()> {
     let mut found = false;
     for cfg in find_localconfig_files() {
         found = true;
-        match fs::read_to_string(&cfg) {
-            Ok(contents) => {
+        match read_localconfig_cached(&cfg) {
+            Some(contents) => {
                 if let Some(updated) = update_compat_tool(&contents, app_id, Some(value)) {
-                    match fs::write(&cfg, updated) {
-                        Ok(_) => return Ok(()),
+                    match fs::write(&cfg, &updated) {
+                        Ok(_) => {
+                            update_localconfig_cache(&cfg, &updated);
+                            return Ok(());
+                        }
                         Err(e) => return Err(e),
                     }
                 }
             }
-            Err(_) => {}
+            None => {}
         }
     }
     if let Some(cfg) = default_localconfig_path() {
         fs::create_dir_all(cfg.parent().unwrap())?;
         if let Some(updated) = update_compat_tool("", app_id, Some(value)) {
-            fs::write(&cfg, updated)?;
+            fs::write(&cfg, &updated)?;
+            update_localconfig_cache(&cfg, &updated);
             return Ok(());
         }
     }
@@ -281,23 +332,27 @@ pub fn clear_compat_tool(app_id: u32) -> io::Result<()> {
     let mut found = false;
     for cfg in find_localconfig_files() {
         found = true;
-        match fs::read_to_string(&cfg) {
-            Ok(contents) => {
+        match read_localconfig_cached(&cfg) {
+            Some(contents) => {
                 if let Some(updated) = update_compat_tool(&contents, app_id, None) {
-                    match fs::write(&cfg, updated) {
-                        Ok(_) => return Ok(()),
+                    match fs::write(&cfg, &updated) {
+                        Ok(_) => {
+                            update_localconfig_cache(&cfg, &updated);
+                            return Ok(());
+                        }
                         Err(e) => return Err(e),
                     }
                 }
             }
-            Err(_) => {}
+            None => {}
         }
     }
     if let Some(cfg) = default_localconfig_path() {
         if cfg.exists() {
-            if let Ok(contents) = fs::read_to_string(&cfg) {
+            if let Some(contents) = read_localconfig_cached(&cfg) {
                 if let Some(updated) = update_compat_tool(&contents, app_id, None) {
-                    fs::write(&cfg, updated)?;
+                    fs::write(&cfg, &updated)?;
+                    update_localconfig_cache(&cfg, &updated);
                     return Ok(());
                 }
             }
@@ -353,15 +408,15 @@ fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
 
 pub fn get_launch_options(app_id: u32) -> Option<String> {
     for cfg in find_localconfig_files() {
-        match fs::read_to_string(&cfg) {
-            Ok(contents) => {
+        match read_localconfig_cached(&cfg) {
+            Some(contents) => {
                 log::debug!("read localconfig {:?} successfully", cfg);
                 if let Some(val) = parse_launch_options(&contents, app_id) {
                     return Some(val);
                 }
             }
-            Err(e) => {
-                log::debug!("failed to read {:?}: {}", cfg, e);
+            None => {
+                log::debug!("failed to read {:?}", cfg);
             }
         }
     }
@@ -427,13 +482,14 @@ pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
     let mut found = false;
     for cfg in find_localconfig_files() {
         found = true;
-        match fs::read_to_string(&cfg) {
-            Ok(contents) => {
+        match read_localconfig_cached(&cfg) {
+            Some(contents) => {
                 log::debug!("read localconfig {:?} successfully", cfg);
                 if let Some(updated) = update_launch_options(&contents, app_id, value) {
-                    match fs::write(&cfg, updated) {
+                    match fs::write(&cfg, &updated) {
                         Ok(_) => {
                             log::debug!("wrote launch options to {:?}", cfg);
+                            update_localconfig_cache(&cfg, &updated);
                             return Ok(());
                         }
                         Err(e) => {
@@ -443,15 +499,16 @@ pub fn set_launch_options(app_id: u32, value: &str) -> io::Result<()> {
                     }
                 }
             }
-            Err(e) => {
-                log::debug!("failed to read {:?}: {}", cfg, e);
+            None => {
+                log::debug!("failed to read {:?}", cfg);
             }
         }
     }
     if let Some(cfg) = default_localconfig_path() {
         fs::create_dir_all(cfg.parent().unwrap())?;
         if let Some(updated) = update_launch_options("", app_id, value) {
-            fs::write(&cfg, updated)?;
+            fs::write(&cfg, &updated)?;
+            update_localconfig_cache(&cfg, &updated);
             log::debug!("created {:?} with launch options", cfg);
             return Ok(());
         }
@@ -635,7 +692,10 @@ mod tests {
         let _guard = TEST_MUTEX.lock().unwrap();
         let contents = "";
         let updated = update_compat_tool(contents, 123, Some("Proton 8")).unwrap();
-        assert_eq!(parse_compat_tool(&updated, 123), Some("Proton 8".to_string()));
+        assert_eq!(
+            parse_compat_tool(&updated, 123),
+            Some("Proton 8".to_string())
+        );
     }
 
     #[test]
