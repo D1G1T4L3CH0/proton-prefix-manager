@@ -1,7 +1,7 @@
 use crate::core::models::GameInfo;
 use eframe::egui;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum SortKey {
     LastPlayed,
     Name,
@@ -64,8 +64,10 @@ pub fn advanced_search_dialog(
     games: &[GameInfo],
     selected: &mut Option<GameInfo>,
 ) {
+    let mut window_open = *open;
+    let mut close_window = false;
     egui::Window::new("Advanced Search")
-        .open(open)
+        .open(&mut window_open)
         .resizable(true)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -115,9 +117,13 @@ pub fn advanced_search_dialog(
                         .clicked()
                     {
                         *selected = Some(game.clone());
-                        *open = false;
+                        close_window = true;
                     }
                 }
             });
         });
+    if close_window {
+        window_open = false;
+    }
+    *open = window_open;
 }
