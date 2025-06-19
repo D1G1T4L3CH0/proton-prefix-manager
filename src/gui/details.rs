@@ -4,6 +4,7 @@ use crate::core::steam;
 use crate::utils::backup as backup_utils;
 use crate::utils::manifest as manifest_utils;
 use crate::utils::prefix_validator::{self, CheckResult, CheckStatus};
+use crate::utils::steam_paths;
 use crate::utils::terminal;
 use crate::utils::user_config;
 use eframe::egui;
@@ -312,6 +313,18 @@ impl<'a> GameDetails<'a> {
                             if name.to_lowercase().contains("proton") {
                                 versions.push(name);
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        for dir in steam_paths::compatibilitytools_dirs() {
+            if let Ok(entries) = fs::read_dir(&dir) {
+                for e in entries.flatten() {
+                    if e.path().is_dir() {
+                        if let Ok(name) = e.file_name().into_string() {
+                            versions.push(name);
                         }
                     }
                 }
