@@ -110,121 +110,126 @@ impl<'a> GameDetails<'a> {
         status_time: &mut f64,
     ) {
         menu::menu_button(ui, "Prefix Tools ▾", |ui| {
-            if ui.button("Backup Prefix").clicked() {
-                match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
-                    Ok(p) => tfd::message_box_ok(
-                        "Backup",
-                        &format!("Backup created at {}", p.display()),
-                        tfd::MessageBoxIcon::Info,
-                    ),
-                    Err(e) => tfd::message_box_ok(
-                        "Backup failed",
-                        &format!("{}", e),
-                        tfd::MessageBoxIcon::Error,
-                    ),
-                }
-                ui.close_menu();
-            }
-            if ui.button("Restore Backup").clicked() {
-                *restore_dialog_open = true;
-                ui.close_menu();
-            }
-            if ui.button("Delete Backup").clicked() {
-                *delete_dialog_open = true;
-                ui.close_menu();
-            }
-            if ui.button("Reset Prefix").clicked() {
-                if tfd::message_box_yes_no(
-                    "Confirm Reset",
-                    "Resetting will delete the prefix. It's prudent to create a backup of your important data or configuration files before performing any critical actions. This ensures you can restore your system to a known good state if something unexpected happens. Continue?",
-                    tfd::MessageBoxIcon::Warning,
-                    tfd::YesNo::No,
-                ) == tfd::YesNo::Yes
-                {
-                    match backup_utils::reset_prefix(game.prefix_path()) {
-                        Ok(_) => {
-                            tfd::message_box_ok("Reset", "Prefix deleted", tfd::MessageBoxIcon::Info)
-                        }
-                        Err(e) => tfd::message_box_ok(
-                            "Reset failed",
-                            &format!("{}", e),
-                            tfd::MessageBoxIcon::Error,
-                        ),
-                    }
-                }
-                ui.close_menu();
-            }
-            if ui.button("Clear Shader Cache").clicked() {
-                if let Ok(libs) = steam::get_steam_libraries() {
-                    match backup_utils::clear_shader_cache(game.app_id(), &libs) {
-                        Ok(_) => tfd::message_box_ok(
-                            "Shader Cache",
-                            "Shader cache cleared",
+            ui.menu_button("Prefix ▾", |ui| {
+                if ui.button("Backup").clicked() {
+                    match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
+                        Ok(p) => tfd::message_box_ok(
+                            "Backup",
+                            &format!("Backup created at {}", p.display()),
                             tfd::MessageBoxIcon::Info,
                         ),
                         Err(e) => tfd::message_box_ok(
-                            "Shader Cache failed",
+                            "Backup failed",
                             &format!("{}", e),
                             tfd::MessageBoxIcon::Error,
                         ),
                     }
+                    ui.close_menu();
                 }
-                ui.close_menu();
-            }
-            if ui.button("Validate Prefix").clicked() {
-                *validation_dialog_open = true;
-                *validation_results = prefix_validator::validate_prefix(game.prefix_path());
-                ui.close_menu();
-            }
-            if ui
-                .add_enabled(
-                    *tools.get("terminal").unwrap_or(&false),
-                    egui::Button::new("Open Terminal"),
-                )
-                .clicked()
-            {
-                let path = game.prefix_path().to_path_buf();
-                thread::spawn(move || {
-                    if let Err(e) = terminal::open_terminal(&path) {
-                        eprintln!("Failed to open terminal: {}", e);
+                if ui.button("Restore").clicked() {
+                    *restore_dialog_open = true;
+                    ui.close_menu();
+                }
+                if ui.button("Delete Backup").clicked() {
+                    *delete_dialog_open = true;
+                    ui.close_menu();
+                }
+                if ui.button("Reset").clicked() {
+                    if tfd::message_box_yes_no(
+                        "Confirm Reset",
+                        "Resetting will delete the prefix. It's prudent to create a backup of your important data or configuration files before performing any critical actions. This ensures you can restore your system to a known good state if something unexpected happens. Continue?",
+                        tfd::MessageBoxIcon::Warning,
+                        tfd::YesNo::No,
+                    ) == tfd::YesNo::Yes
+                    {
+                        match backup_utils::reset_prefix(game.prefix_path()) {
+                            Ok(_) => {
+                                tfd::message_box_ok("Reset", "Prefix deleted", tfd::MessageBoxIcon::Info)
+                            }
+                            Err(e) => tfd::message_box_ok(
+                                "Reset failed",
+                                &format!("{}", e),
+                                tfd::MessageBoxIcon::Error,
+                            ),
+                        }
                     }
-                });
-                ui.close_menu();
-            }
-            if ui.button("Open Prefix Folder").clicked() {
-                let _ = open::that(game.prefix_path());
-                ui.close_menu();
-            }
-            if ui
-                .add_enabled(
-                    *tools.get("winecfg").unwrap_or(&false),
-                    egui::Button::new("Launch winecfg"),
-                )
-                .clicked()
-            {
-                let appid = game.app_id();
-                *status_message = Some("Launching winecfg...".to_string());
-                *status_time = ui.input(|i| i.time);
-                thread::spawn(move || {
-                    winecfg::execute(appid);
-                });
-                ui.close_menu();
-            }
-            if ui
-                .add_enabled(
-                    *tools.get("protontricks").unwrap_or(&false),
-                    egui::Button::new("Launch protontricks"),
-                )
-                .clicked()
-            {
-                let appid = game.app_id();
-                *status_message = Some("Launching protontricks...".to_string());
-                *status_time = ui.input(|i| i.time);
-                thread::spawn(move || {
-                    protontricks::execute(appid, &[]);
-                });
-                ui.close_menu();
-            }
+                    ui.close_menu();
+                }
+                if ui.button("Validate").clicked() {
+                    *validation_dialog_open = true;
+                    *validation_results = prefix_validator::validate_prefix(game.prefix_path());
+                    ui.close_menu();
+                }
+            });
+
+            ui.menu_button("Troubleshooting ▾", |ui| {
+                if ui
+                    .add_enabled(
+                        *tools.get("terminal").unwrap_or(&false),
+                        egui::Button::new("Terminal"),
+                    )
+                    .clicked()
+                {
+                    let path = game.prefix_path().to_path_buf();
+                    thread::spawn(move || {
+                        if let Err(e) = terminal::open_terminal(&path) {
+                            eprintln!("Failed to open terminal: {}", e);
+                        }
+                    });
+                    ui.close_menu();
+                }
+                if ui.button("Explore Prefix").clicked() {
+                    let _ = open::that(game.prefix_path());
+                    ui.close_menu();
+                }
+                if ui
+                    .add_enabled(
+                        *tools.get("winecfg").unwrap_or(&false),
+                        egui::Button::new("Launch winecfg"),
+                    )
+                    .clicked()
+                {
+                    let appid = game.app_id();
+                    *status_message = Some("Launching winecfg...".to_string());
+                    *status_time = ui.input(|i| i.time);
+                    thread::spawn(move || {
+                        winecfg::execute(appid);
+                    });
+                    ui.close_menu();
+                }
+                if ui
+                    .add_enabled(
+                        *tools.get("protontricks").unwrap_or(&false),
+                        egui::Button::new("Launch protontricks"),
+                    )
+                    .clicked()
+                {
+                    let appid = game.app_id();
+                    *status_message = Some("Launching protontricks...".to_string());
+                    *status_time = ui.input(|i| i.time);
+                    thread::spawn(move || {
+                        protontricks::execute(appid, &[]);
+                    });
+                    ui.close_menu();
+                }
+                if ui.button("Clear Shader Cache").clicked() {
+                    if let Ok(libs) = steam::get_steam_libraries() {
+                        match backup_utils::clear_shader_cache(game.app_id(), &libs) {
+                            Ok(_) => tfd::message_box_ok(
+                                "Shader Cache",
+                                "Shader cache cleared",
+                                tfd::MessageBoxIcon::Info,
+                            ),
+                            Err(e) => tfd::message_box_ok(
+                                "Shader Cache failed",
+                                &format!("{}", e),
+                                tfd::MessageBoxIcon::Error,
+                            ),
+                        }
+                    }
+                    ui.close_menu();
+                }
+            });
         })
         .response
         .on_hover_text("Tools for managing this game's Proton prefix");
