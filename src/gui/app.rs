@@ -3,6 +3,7 @@ use super::backup_manager::BackupManagerWindow;
 use super::details::GameConfig;
 use super::details::GameDetails;
 use super::game_list::GameList;
+use super::SortOption;
 use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::dependencies::scan_tools;
@@ -13,6 +14,8 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::fs;
+use std::time::SystemTime;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -36,6 +39,7 @@ pub struct ProtonPrefixManagerApp {
     backup_manager: BackupManagerWindow,
     show_advanced_search: bool,
     adv_state: AdvancedSearchState,
+    sort_option: SortOption,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -66,6 +70,7 @@ impl Default for ProtonPrefixManagerApp {
             backup_manager: BackupManagerWindow::new(),
             show_advanced_search: false,
             adv_state: AdvancedSearchState::default(),
+            sort_option: SortOption::ModifiedDesc,
         }
     }
 }
@@ -93,6 +98,34 @@ impl ProtonPrefixManagerApp {
         app
     }
 
+    fn sort_filtered_games(&mut self) {
+        match self.sort_option {
+            SortOption::NameAsc => {
+                self.filtered_games
+                    .sort_by(|a, b| a.name().to_lowercase().cmp(&b.name().to_lowercase()));
+            }
+            SortOption::NameDesc => {
+                self.filtered_games
+                    .sort_by(|a, b| b.name().to_lowercase().cmp(&a.name().to_lowercase()));
+            }
+            SortOption::ModifiedAsc | SortOption::ModifiedDesc => {
+                self.filtered_games.sort_by(|a, b| {
+                    let ta = fs::metadata(a.prefix_path())
+                        .and_then(|m| m.modified())
+                        .unwrap_or(SystemTime::UNIX_EPOCH);
+                    let tb = fs::metadata(b.prefix_path())
+                        .and_then(|m| m.modified())
+                        .unwrap_or(SystemTime::UNIX_EPOCH);
+                    if self.sort_option == SortOption::ModifiedAsc {
+                        ta.cmp(&tb)
+                    } else {
+                        tb.cmp(&ta)
+                    }
+                });
+            }
+        }
+    }
+
     fn search_games(&mut self) {
         let query = self.search_query.to_lowercase();
         if let Ok(locked) = self.installed_games.lock() {
@@ -104,17 +137,17 @@ impl ProtonPrefixManagerApp {
                 })
                 .cloned()
                 .collect();
+        }
 
-            self.filtered_games.sort_by(|a, b| a.name().cmp(b.name()));
+        self.sort_filtered_games();
 
-            // Update status message
-            if self.filtered_games.is_empty() && !query.is_empty() {
-                self.status_message = Some(format!("No games found matching '{}'", query));
-            } else if !self.filtered_games.is_empty() {
-                self.status_message = Some(format!("Found {} games", self.filtered_games.len()));
-            } else {
-                self.status_message = None;
-            }
+        // Update status message
+        if self.filtered_games.is_empty() && !query.is_empty() {
+            self.status_message = Some(format!("No games found matching '{}'", query));
+        } else if !self.filtered_games.is_empty() {
+            self.status_message = Some(format!("Found {} games", self.filtered_games.len()));
+        } else {
+            self.status_message = None;
         }
         self.search_changed = false;
     }
@@ -188,6 +221,9 @@ impl eframe::App for ProtonPrefixManagerApp {
                         "Failed to load Steam games. Make sure Steam is installed.".to_string(),
                     );
                 }
+            }
+            if !self.loading {
+                self.sort_filtered_games();
             }
         }
 
@@ -304,7 +340,11 @@ impl eframe::App for ProtonPrefixManagerApp {
             egui::SidePanel::left("game_list_panel")
                 .resizable(true)
                 .show(ctx, |ui| {
-                    GameList::new(&self.filtered_games).show(ui, &mut self.selected_game);
+                    let changed = GameList::new(&self.filtered_games)
+                        .show(ui, &mut self.selected_game, &mut self.sort_option);
+                    if changed {
+                        self.sort_filtered_games();
+                    }
                 });
 
             let current_id = self.selected_game.as_ref().map(|g| g.app_id());
