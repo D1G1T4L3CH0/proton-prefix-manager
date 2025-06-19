@@ -1,8 +1,6 @@
 use crate::core::models::GameInfo;
 use eframe::egui;
 use std::cmp::Ordering;
-use std::fs;
-use std::time::SystemTime;
 
 /// Available sort options for the game list
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -35,12 +33,8 @@ pub(super) fn compare_games(a: &GameInfo, b: &GameInfo, sort: SortOption) -> Ord
             .to_lowercase()
             .cmp(&a.name().to_lowercase()),
         SortOption::ModifiedAsc | SortOption::ModifiedDesc => {
-            let ta = fs::metadata(a.prefix_path())
-                .and_then(|m| m.modified())
-                .unwrap_or(SystemTime::UNIX_EPOCH);
-            let tb = fs::metadata(b.prefix_path())
-                .and_then(|m| m.modified())
-                .unwrap_or(SystemTime::UNIX_EPOCH);
+            let ta = a.modified();
+            let tb = b.modified();
             if matches!(sort, SortOption::ModifiedAsc) {
                 ta.cmp(&tb)
             } else {

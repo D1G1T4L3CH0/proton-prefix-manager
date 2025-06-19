@@ -515,24 +515,19 @@ impl<'a> GameDetails<'a> {
                     if self.prefix_available() {
                         self.show_path(ui, "Prefix Path:", game.prefix_path());
 
-                        if let Ok(metadata) = fs::metadata(game.prefix_path()) {
-                            if let Ok(modified) = metadata.modified() {
-                                if let Ok(time) = modified.duration_since(UNIX_EPOCH) {
-                                    let datetime = chrono::DateTime::<chrono::Local>::from(
-                                        SystemTime::UNIX_EPOCH + time,
-                                    );
-                                    egui::Grid::new("modified_time")
-                                        .num_columns(2)
-                                        .spacing([8.0, 4.0])
-                                        .show(ui, |ui| {
-                                            ui.label("Last Modified:");
-                                            ui.monospace(
-                                                datetime.format("%Y-%m-%d %H:%M").to_string(),
-                                            );
-                                            ui.end_row();
-                                        });
-                                }
-                            }
+                        let modified = game.modified();
+                        if let Ok(time) = modified.duration_since(UNIX_EPOCH) {
+                            let datetime = chrono::DateTime::<chrono::Local>::from(
+                                SystemTime::UNIX_EPOCH + time,
+                            );
+                            egui::Grid::new("modified_time")
+                                .num_columns(2)
+                                .spacing([8.0, 4.0])
+                                .show(ui, |ui| {
+                                    ui.label("Last Modified:");
+                                    ui.monospace(datetime.format("%Y-%m-%d %H:%M").to_string());
+                                    ui.end_row();
+                                });
                         }
 
                         let drive_c = game.prefix_path().join("pfx/drive_c");

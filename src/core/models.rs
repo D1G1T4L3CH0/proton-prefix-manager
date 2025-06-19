@@ -2,6 +2,7 @@
 
 use crate::error::{Error, Result};
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 /// Represents a Steam game with its Proton prefix information.
 #[derive(Clone, Debug)]
@@ -20,6 +21,9 @@ pub struct GameInfo {
 
     /// Last time the game was played (Unix timestamp)
     last_played: u64,
+
+    /// Last modification time of the prefix directory
+    modified: SystemTime,
 }
 
 impl GameInfo {
@@ -41,12 +45,17 @@ impl GameInfo {
             ));
         }
 
+        let modified = std::fs::metadata(&prefix_path)
+            .and_then(|m| m.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+
         Ok(Self {
             app_id,
             name,
             prefix_path,
             has_manifest,
             last_played,
+            modified,
         })
     }
 
@@ -73,6 +82,11 @@ impl GameInfo {
     /// Gets the last played time as a Unix timestamp.
     pub fn last_played(&self) -> u64 {
         self.last_played
+    }
+
+    /// Gets the prefix last modification time.
+    pub fn modified(&self) -> SystemTime {
+        self.modified
     }
 
     /// Checks if the Proton prefix exists.
