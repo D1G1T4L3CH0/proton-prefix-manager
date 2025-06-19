@@ -134,6 +134,7 @@ fn main() {
                 .viewport
                 .with_decorations(true)
                 .with_inner_size(egui::vec2(1200.0, 800.0));
+            native_options.centered = true;
             // Let the OS decide where to place the window
             native_options.persist_window = false;
             eframe::run_native(
