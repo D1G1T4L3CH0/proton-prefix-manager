@@ -40,6 +40,9 @@ pub fn execute(
                             }
                             if let Some(v) = proton {
                                 contents = manifest_utils::update_or_insert(&contents, "CompatToolOverride", &v);
+                                if let Err(e) = user_config::set_compat_tool(appid, &v) {
+                                    eprintln!("Failed to update compatibility tool: {}", e);
+                                }
                             }
                             if let Some(v) = cloud {
                                 let val = if v { "1" } else { "0" };

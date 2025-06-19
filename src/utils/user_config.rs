@@ -128,6 +128,194 @@ pub fn expected_localconfig_path() -> Option<PathBuf> {
     default_localconfig_path()
 }
 
+fn parse_compat_tool(contents: &str, app_id: u32) -> Option<String> {
+    let vdf = Vdf::parse(contents).ok()?;
+    let mut root = vdf.value.get_obj()?;
+
+    if let Some(obj) = root
+        .get("UserLocalConfigStore")
+        .and_then(|v| v.first())
+        .and_then(Value::get_obj)
+    {
+        root = obj;
+    }
+
+    let overrides = root
+        .get("Software")?
+        .first()?
+        .get_obj()?
+        .get("Valve")?
+        .first()?
+        .get_obj()?
+        .get("Steam")?
+        .first()?
+        .get_obj()?
+        .get("CompatToolOverrides")?
+        .first()?
+        .get_obj()?;
+
+    overrides
+        .get(app_id.to_string().as_str())?
+        .first()?
+        .get_obj()?
+        .get("name")?
+        .first()?
+        .get_str()
+        .map(|s| s.to_string())
+}
+
+pub fn get_compat_tool(app_id: u32) -> Option<String> {
+    for cfg in find_localconfig_files() {
+        match fs::read_to_string(&cfg) {
+            Ok(contents) => {
+                if let Some(val) = parse_compat_tool(&contents, app_id) {
+                    return Some(val);
+                }
+            }
+            Err(_) => {}
+        }
+    }
+    None
+}
+
+fn update_compat_tool(contents: &str, app_id: u32, value: Option<&str>) -> Option<String> {
+    let mut vdf = Vdf::parse(contents).unwrap_or_else(|_| {
+        Vdf::new(
+            "UserLocalConfigStore".into(),
+            Value::Obj(Default::default()),
+        )
+    });
+
+    if vdf.value.get_mut_obj().is_none() {
+        vdf.value = Value::Obj(Default::default());
+    }
+
+    let mut obj = {
+        let root = vdf.value.get_mut_obj().unwrap();
+        match root
+            .get_mut("UserLocalConfigStore")
+            .and_then(|v| v.first_mut())
+            .and_then(Value::get_mut_obj)
+        {
+            Some(inner) => inner,
+            None => root,
+        }
+    };
+
+    for key in ["Software", "Valve", "Steam", "CompatToolOverrides"] {
+        obj = obj
+            .entry(key.into())
+            .or_insert_with(|| vec![Value::Obj(Default::default())])
+            .first_mut()
+            .and_then(Value::get_mut_obj)
+            .unwrap();
+    }
+
+    if let Some(tool) = value {
+        let entry = obj
+            .entry(app_id.to_string().into())
+            .or_insert_with(|| vec![Value::Obj(Default::default())]);
+        let app_obj = entry.first_mut().and_then(Value::get_mut_obj).unwrap();
+
+        match app_obj.get_mut("name") {
+            Some(vals) if !vals.is_empty() => {
+                if let Some(s) = vals.first_mut().and_then(Value::get_mut_str) {
+                    *s.to_mut() = tool.to_string();
+                }
+            }
+            _ => {
+                app_obj.insert("name".into(), vec![Value::Str(tool.into())]);
+            }
+        }
+
+        if app_obj.get("config").is_none() {
+            app_obj.insert("config".into(), vec![Value::Str("".into())]);
+        }
+        if app_obj.get("priority").is_none() {
+            app_obj.insert("priority".into(), vec![Value::Str("0".into())]);
+        }
+    } else {
+        obj.remove(app_id.to_string().as_str());
+    }
+
+    Some(format!("{}", vdf))
+}
+
+pub fn set_compat_tool(app_id: u32, value: &str) -> io::Result<()> {
+    let mut found = false;
+    for cfg in find_localconfig_files() {
+        found = true;
+        match fs::read_to_string(&cfg) {
+            Ok(contents) => {
+                if let Some(updated) = update_compat_tool(&contents, app_id, Some(value)) {
+                    match fs::write(&cfg, updated) {
+                        Ok(_) => return Ok(()),
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+    }
+    if let Some(cfg) = default_localconfig_path() {
+        fs::create_dir_all(cfg.parent().unwrap())?;
+        if let Some(updated) = update_compat_tool("", app_id, Some(value)) {
+            fs::write(&cfg, updated)?;
+            return Ok(());
+        }
+    }
+    if found {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "failed to update localconfig",
+        ))
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "localconfig not found",
+        ))
+    }
+}
+
+pub fn clear_compat_tool(app_id: u32) -> io::Result<()> {
+    let mut found = false;
+    for cfg in find_localconfig_files() {
+        found = true;
+        match fs::read_to_string(&cfg) {
+            Ok(contents) => {
+                if let Some(updated) = update_compat_tool(&contents, app_id, None) {
+                    match fs::write(&cfg, updated) {
+                        Ok(_) => return Ok(()),
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+    }
+    if let Some(cfg) = default_localconfig_path() {
+        if cfg.exists() {
+            if let Ok(contents) = fs::read_to_string(&cfg) {
+                if let Some(updated) = update_compat_tool(&contents, app_id, None) {
+                    fs::write(&cfg, updated)?;
+                    return Ok(());
+                }
+            }
+        }
+    }
+    if found {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "failed to update localconfig",
+        ))
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "localconfig not found",
+        ))
+    }
+}
+
 fn parse_launch_options(contents: &str, app_id: u32) -> Option<String> {
     let vdf = Vdf::parse(contents).ok()?;
     let mut root = vdf.value.get_obj()?;
@@ -431,6 +619,34 @@ mod tests {
         fs::create_dir_all(home.path().join(".steam/steam/userdata/111111111/config")).unwrap();
 
         let result = set_launch_options(123456, "-novid");
+        assert!(result.is_ok());
+        let cfg_path = home
+            .path()
+            .join(".steam/steam/userdata/111111111/config/localconfig.vdf");
+        assert!(cfg_path.exists());
+
+        if let Some(h) = old_home {
+            std::env::set_var("HOME", h);
+        }
+    }
+
+    #[test]
+    fn test_update_compat_tool_creates_section() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let contents = "";
+        let updated = update_compat_tool(contents, 123, Some("Proton 8")).unwrap();
+        assert_eq!(parse_compat_tool(&updated, 123), Some("Proton 8".to_string()));
+    }
+
+    #[test]
+    fn test_set_compat_tool_missing_file() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let (home, _prefix, _login) = crate::test_helpers::setup_steam_env(654321, true);
+        let old_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", home.path());
+        fs::create_dir_all(home.path().join(".steam/steam/userdata/111111111/config")).unwrap();
+
+        let result = set_compat_tool(654321, "Proton 8");
         assert!(result.is_ok());
         let cfg_path = home
             .path()
