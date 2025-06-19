@@ -243,66 +243,79 @@ pub fn advanced_search_dialog(
                 });
             });
             ui.separator();
-            ui.horizontal(|ui| {
-                ui.label("Search:");
-                let resp = ui.text_edit_singleline(&mut state.query);
-                if resp.changed() {
-                    state.perform_search(games);
-                }
-            });
-            ui.separator();
-            let mut changed = false;
-            changed |= tri_state_combo(ui, "Has manifest", &mut state.has_manifest);
-            changed |= tri_state_combo(ui, "Has prefix", &mut state.has_prefix);
-            changed |= tri_state_combo(ui, "Auto-update enabled", &mut state.auto_update);
-            changed |= tri_state_combo(ui, "Steam Cloud enabled", &mut state.cloud_sync);
-            changed |= tri_state_combo(ui, "Custom launch options", &mut state.custom_launch);
-            changed |= tri_state_combo(ui, "Custom Proton version", &mut state.custom_proton);
-            ui.separator();
-            egui::ComboBox::from_label("Sort By")
-                .selected_text(match state.sort_key {
-                    SortKey::LastPlayed => "Last Modified",
-                    SortKey::Name => "Name",
-                    SortKey::AppId => "AppID",
-                    SortKey::ProtonVersion => "Proton Version",
-                })
-                .show_ui(ui, |ui| {
-                    changed |= ui
-                        .selectable_value(&mut state.sort_key, SortKey::LastPlayed, "Last Modified")
-                        .changed();
-                    changed |= ui
-                        .selectable_value(&mut state.sort_key, SortKey::Name, "Name")
-                        .changed();
-                    changed |= ui
-                        .selectable_value(&mut state.sort_key, SortKey::AppId, "AppID")
-                        .changed();
-                    changed |= ui
-                        .selectable_value(
-                            &mut state.sort_key,
-                            SortKey::ProtonVersion,
-                            "Proton Version",
-                        )
-                        .changed();
+            ui.columns(2, |columns| {
+                columns[0].vertical(|ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        for game in &state.results {
+                            if ui
+                                .button(format!("{} ({})", game.name(), game.app_id()))
+                                .clicked()
+                            {
+                                *selected = Some(game.clone());
+                                close_window = true;
+                            }
+                        }
+                    });
                 });
-            changed |= ui.checkbox(&mut state.descending, "Descending").changed();
-            if ui.button("Clear Previous Search").clicked() {
-                *state = AdvancedSearchState::default();
-                state.perform_search(games);
-            }
-            ui.separator();
-            if changed {
-                state.perform_search(games);
-            }
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for game in &state.results {
-                    if ui
-                        .button(format!("{} ({})", game.name(), game.app_id()))
-                        .clicked()
-                    {
-                        *selected = Some(game.clone());
-                        close_window = true;
+
+                columns[1].vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Search:");
+                        let resp = ui.text_edit_singleline(&mut state.query);
+                        if resp.changed() {
+                            state.perform_search(games);
+                        }
+                    });
+                    ui.separator();
+                    let mut changed = false;
+                    changed |= tri_state_combo(ui, "Has manifest", &mut state.has_manifest);
+                    changed |= tri_state_combo(ui, "Has prefix", &mut state.has_prefix);
+                    changed |= tri_state_combo(ui, "Auto-update enabled", &mut state.auto_update);
+                    changed |= tri_state_combo(ui, "Steam Cloud enabled", &mut state.cloud_sync);
+                    changed |=
+                        tri_state_combo(ui, "Custom launch options", &mut state.custom_launch);
+                    changed |=
+                        tri_state_combo(ui, "Custom Proton version", &mut state.custom_proton);
+                    ui.separator();
+                    egui::ComboBox::from_label("Sort By")
+                        .selected_text(match state.sort_key {
+                            SortKey::LastPlayed => "Last Modified",
+                            SortKey::Name => "Name",
+                            SortKey::AppId => "AppID",
+                            SortKey::ProtonVersion => "Proton Version",
+                        })
+                        .show_ui(ui, |ui| {
+                            changed |= ui
+                                .selectable_value(
+                                    &mut state.sort_key,
+                                    SortKey::LastPlayed,
+                                    "Last Modified",
+                                )
+                                .changed();
+                            changed |= ui
+                                .selectable_value(&mut state.sort_key, SortKey::Name, "Name")
+                                .changed();
+                            changed |= ui
+                                .selectable_value(&mut state.sort_key, SortKey::AppId, "AppID")
+                                .changed();
+                            changed |= ui
+                                .selectable_value(
+                                    &mut state.sort_key,
+                                    SortKey::ProtonVersion,
+                                    "Proton Version",
+                                )
+                                .changed();
+                        });
+                    changed |= ui.checkbox(&mut state.descending, "Descending").changed();
+                    if ui.button("Clear Previous Search").clicked() {
+                        *state = AdvancedSearchState::default();
+                        state.perform_search(games);
                     }
-                }
+                    ui.separator();
+                    if changed {
+                        state.perform_search(games);
+                    }
+                });
             });
         });
 
