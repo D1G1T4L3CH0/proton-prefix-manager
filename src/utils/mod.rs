@@ -5,6 +5,7 @@ pub mod library;
 pub mod logging;
 pub mod manifest;
 pub mod output;
+pub mod prefix_repair;
 pub mod prefix_validator;
 pub mod runtime_cleaner;
 pub mod steam_paths;

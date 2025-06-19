@@ -462,7 +462,13 @@ impl<'a> GameDetails<'a> {
         }
     }
 
-    fn validate_window(&self, ctx: &egui::Context, results: &[CheckResult], open: &mut bool) {
+    fn validate_window(
+        &self,
+        ctx: &egui::Context,
+        results: &mut Vec<CheckResult>,
+        prefix: &std::path::Path,
+        open: &mut bool,
+    ) {
         if !*open {
             return;
         }
@@ -481,7 +487,7 @@ impl<'a> GameDetails<'a> {
                 });
                 ui.separator();
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    for r in results {
+                    for r in results.iter() {
                         let (icon, color) = match r.status {
                             CheckStatus::Pass => ("✔", egui::Color32::from_rgb(0, 180, 0)),
                             CheckStatus::Fail(_) => ("✖", egui::Color32::from_rgb(200, 0, 0)),
@@ -518,6 +524,37 @@ impl<'a> GameDetails<'a> {
 
                 ui.separator();
                 ui.label(summary);
+
+                if has_fail {
+                    if ui.button("Repair Prefix").clicked() {
+                        if tfd::message_box_yes_no(
+                            "Repair Prefix",
+                            "Attempt to repair the prefix?",
+                            tfd::MessageBoxIcon::Question,
+                            tfd::YesNo::Yes,
+                        ) == tfd::YesNo::Yes
+                        {
+                            match crate::utils::prefix_repair::repair_prefix(prefix) {
+                                Ok(_) => {
+                                    *results =
+                                        crate::utils::prefix_validator::validate_prefix(prefix);
+                                    tfd::message_box_ok(
+                                        "Repair",
+                                        "Repair completed",
+                                        tfd::MessageBoxIcon::Info,
+                                    );
+                                }
+                                Err(e) => {
+                                    tfd::message_box_ok(
+                                        "Repair failed",
+                                        &format!("{}", e),
+                                        tfd::MessageBoxIcon::Error,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
         if response.should_close() || should_close {
@@ -720,7 +757,12 @@ impl<'a> GameDetails<'a> {
             }
 
             if *validation_dialog_open {
-                self.validate_window(ui.ctx(), validation_results, validation_dialog_open);
+                self.validate_window(
+                    ui.ctx(),
+                    validation_results,
+                    game.prefix_path(),
+                    validation_dialog_open,
+                );
             }
         } else {
             ui.centered_and_justified(|ui| {

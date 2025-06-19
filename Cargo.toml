@@ -28,6 +28,7 @@ anyhow = "1.0.80"
 rayon = "1.8.0"
 which = "4.4.2"
 keyvalues-parser = "0.2.0"
+walkdir = "2.5"
 
 [dev-dependencies]
 tempfile = "3.10.1"
