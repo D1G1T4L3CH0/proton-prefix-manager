@@ -109,7 +109,7 @@ impl<'a> GameDetails<'a> {
         status_message: &mut Option<String>,
         status_time: &mut f64,
     ) {
-        menu::menu_button(ui, "Prefix Tools ▾", |ui| {
+        menu::menu_button(ui, "Tools ▾", |ui| {
             ui.menu_button("Prefix ▾", |ui| {
                 if ui.button("Backup").clicked() {
                     match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
@@ -176,10 +176,6 @@ impl<'a> GameDetails<'a> {
                             eprintln!("Failed to open terminal: {}", e);
                         }
                     });
-                    ui.close_menu();
-                }
-                if ui.button("Explore Prefix").clicked() {
-                    let _ = open::that(game.prefix_path());
                     ui.close_menu();
                 }
                 if ui
