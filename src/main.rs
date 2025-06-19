@@ -37,7 +37,7 @@
 //! ```
 
 use clap::Parser;
-use eframe::NativeOptions;
+use eframe::{egui, NativeOptions};
 
 mod cli;
 mod core;
@@ -127,7 +127,10 @@ fn main() {
         None => {
             log::info!("Launching GUI...");
             let mut native_options = NativeOptions::default();
-            native_options.viewport = native_options.viewport.with_decorations(true);
+            native_options.viewport = native_options
+                .viewport
+                .with_decorations(true)
+                .with_inner_size(egui::vec2(1200.0, 800.0));
             eframe::run_native(
                 "Proton Prefix Manager",
                 native_options,
