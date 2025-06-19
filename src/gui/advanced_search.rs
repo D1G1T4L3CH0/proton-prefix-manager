@@ -147,6 +147,11 @@ impl AdvancedSearchState {
 
     pub fn perform_search(&mut self, games: &[GameInfo]) {
         let q = self.query.to_lowercase();
+        let require_flags = self.sort_key == SortKey::ProtonVersion
+            || self.auto_update != TriState::Any
+            || self.cloud_sync != TriState::Any
+            || self.custom_launch != TriState::Any
+            || self.custom_proton != TriState::Any;
         self.results = games
             .iter()
             .filter(|g| {
@@ -161,8 +166,9 @@ impl AdvancedSearchState {
                     && self.has_manifest.matches(g.has_manifest())
                     && self.has_prefix.matches(g.prefix_path().exists())
                     && {
-                        let flags = self.load_flags(g.app_id());
-                        if let Some(f) = flags {
+                        if !require_flags {
+                            true
+                        } else if let Some(f) = self.load_flags(g.app_id()) {
                             self.auto_update.matches(f.auto_update)
                                 && self.cloud_sync.matches(f.cloud_sync)
                                 && self.custom_launch.matches(f.custom_launch)
@@ -178,7 +184,7 @@ impl AdvancedSearchState {
             .cloned()
             .collect();
 
-        if self.sort_key == SortKey::ProtonVersion {
+        if self.sort_key == SortKey::ProtonVersion && require_flags {
             let ids: Vec<u32> = self.results.iter().map(|g| g.app_id()).collect();
             for id in ids {
                 let _ = self.load_flags(id);
