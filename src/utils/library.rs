@@ -1,8 +1,55 @@
-use keyvalues_parser::{Vdf, Value};
+use keyvalues_parser::{Value, Vdf};
+use once_cell::sync::Lazy;
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::Mutex,
+    time::SystemTime,
 };
+
+struct ManifestEntry {
+    contents: String,
+    modified: SystemTime,
+}
+
+static MANIFEST_FILE_CACHE: Lazy<Mutex<HashMap<PathBuf, ManifestEntry>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+pub fn read_manifest_cached(path: &Path) -> Option<String> {
+    let modified = fs::metadata(path).ok()?.modified().ok()?;
+    let mut cache = MANIFEST_FILE_CACHE.lock().unwrap();
+    if let Some(entry) = cache.get(path) {
+        if entry.modified >= modified {
+            return Some(entry.contents.clone());
+        }
+    }
+    let contents = fs::read_to_string(path).ok()?;
+    cache.insert(
+        path.to_path_buf(),
+        ManifestEntry {
+            contents: contents.clone(),
+            modified,
+        },
+    );
+    Some(contents)
+}
+
+pub fn update_manifest_cache(path: &Path, contents: &str) {
+    if let Ok(modified) = fs::metadata(path).and_then(|m| m.modified()) {
+        let mut cache = MANIFEST_FILE_CACHE.lock().unwrap();
+        cache.insert(
+            path.to_path_buf(),
+            ManifestEntry {
+                contents: contents.to_string(),
+                modified,
+            },
+        );
+    }
+}
+pub fn clear_manifest_cache() {
+    MANIFEST_FILE_CACHE.lock().unwrap().clear();
+}
 
 pub fn parse_libraryfolders_vdf(vdf_path: &str) -> Option<Vec<PathBuf>> {
     let content = fs::read_to_string(vdf_path).ok()?;
@@ -11,8 +58,7 @@ pub fn parse_libraryfolders_vdf(vdf_path: &str) -> Option<Vec<PathBuf>> {
     let folders_obj_opt = if vdf.key == "libraryfolders" {
         vdf.value.get_obj()
     } else {
-        vdf
-            .value
+        vdf.value
             .get_obj()
             .and_then(|o| o.get("libraryfolders"))
             .and_then(|v| v.first())
@@ -38,20 +84,11 @@ pub fn parse_libraryfolders_vdf(vdf_path: &str) -> Option<Vec<PathBuf>> {
 }
 
 pub fn parse_appmanifest(path: &Path) -> Option<(u32, String, u64)> {
-    let contents = fs::read_to_string(path).ok()?;
+    let contents = read_manifest_cached(path)?;
     let vdf = Vdf::parse(&contents).ok()?;
     let app_state = vdf.value.get_obj()?;
-    let appid = app_state
-        .get("appid")?
-        .first()?
-        .get_str()?
-        .parse()
-        .ok()?;
-    let name = app_state
-        .get("name")?
-        .first()?
-        .get_str()?
-        .to_string();
+    let appid = app_state.get("appid")?.first()?.get_str()?.parse().ok()?;
+    let name = app_state.get("name")?.first()?.get_str()?.to_string();
     let last_played = app_state
         .get("LastPlayed")
         .and_then(|v| v.first())
