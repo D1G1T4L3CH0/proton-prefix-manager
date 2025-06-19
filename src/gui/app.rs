@@ -1,3 +1,4 @@
+use super::advanced_search::{advanced_search_dialog, AdvancedSearchState};
 use super::backup_manager::BackupManagerWindow;
 use super::details::GameConfig;
 use super::details::GameDetails;
@@ -33,6 +34,8 @@ pub struct ProtonPrefixManagerApp {
     config_cache: HashMap<u32, GameConfig>,
     show_backup_manager: bool,
     backup_manager: BackupManagerWindow,
+    show_advanced_search: bool,
+    adv_state: AdvancedSearchState,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -61,6 +64,8 @@ impl Default for ProtonPrefixManagerApp {
             config_cache: HashMap::new(),
             show_backup_manager: false,
             backup_manager: BackupManagerWindow::new(),
+            show_advanced_search: false,
+            adv_state: AdvancedSearchState::default(),
         }
     }
 }
@@ -212,6 +217,16 @@ impl eframe::App for ProtonPrefixManagerApp {
                         self.toggle_theme(ctx);
                     }
                     if ui
+                        .small_button("🔎")
+                        .on_hover_text("Advanced Search")
+                        .clicked()
+                    {
+                        if let Ok(g) = self.installed_games.lock() {
+                            self.adv_state.perform_search(&g);
+                        }
+                        self.show_advanced_search = true;
+                    }
+                    if ui
                         .button("Manage Backups")
                         .on_hover_text("View and manage backups for all games.")
                         .clicked()
@@ -327,6 +342,18 @@ impl eframe::App for ProtonPrefixManagerApp {
         } else {
             self.backup_manager
                 .show(ctx, &mut self.show_backup_manager, None);
+        }
+
+        if let Ok(games) = self.installed_games.lock() {
+            if self.show_advanced_search {
+                advanced_search_dialog(
+                    ctx,
+                    &mut self.adv_state,
+                    &mut self.show_advanced_search,
+                    &games,
+                    &mut self.selected_game,
+                );
+            }
         }
 
         // Periodically rescan for external tools so disabled buttons can update
