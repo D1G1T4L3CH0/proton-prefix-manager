@@ -256,7 +256,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                         self.toggle_theme(ctx);
                     }
                     if ui
-                        .small_button("🔎")
+                        .button("🔎 Advanced Search")
                         .on_hover_text("Advanced Search")
                         .clicked()
                     {
@@ -266,14 +266,14 @@ impl eframe::App for ProtonPrefixManagerApp {
                         self.show_advanced_search = true;
                     }
                     if ui
-                        .button("Manage Backups")
+                        .button("💾 Manage Backups")
                         .on_hover_text("View and manage backups for all games.")
                         .clicked()
                     {
                         self.show_backup_manager = true;
                     }
                     if ui
-                        .button("Steam Runtime Cleaner")
+                        .button("🧹 Steam Runtime Cleaner")
                         .on_hover_text("Find leftover data to delete.")
                         .clicked()
                     {
