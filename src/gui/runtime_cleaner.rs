@@ -168,6 +168,15 @@ impl RuntimeCleanerWindow {
                         {
                             let _ = open::that(&item.path);
                         }
+                        if let Some(appid) = item.app_id {
+                            if ui
+                                .button("🔗")
+                                .on_hover_text(format!("Open SteamDB page for {}", appid))
+                                .clicked()
+                            {
+                                let _ = open::that(format!("https://steamdb.info/app/{}/", appid));
+                            }
+                        }
                         let lbl = if let Some(id) = item.app_id {
                             format!("{} (AppID {})", item.path.display(), id)
                         } else {
