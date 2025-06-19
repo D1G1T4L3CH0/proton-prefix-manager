@@ -106,6 +106,8 @@ impl<'a> GameDetails<'a> {
         validation_dialog_open: &mut bool,
         validation_results: &mut Vec<CheckResult>,
         tools: &BTreeMap<String, bool>,
+        status_message: &mut Option<String>,
+        status_time: &mut f64,
     ) {
         menu::menu_button(ui, "Prefix Tools ▾", |ui| {
             if ui.button("Backup Prefix").clicked() {
@@ -201,6 +203,8 @@ impl<'a> GameDetails<'a> {
                 .clicked()
             {
                 let appid = game.app_id();
+                *status_message = Some("Launching winecfg...".to_string());
+                *status_time = ui.input(|i| i.time);
                 thread::spawn(move || {
                     winecfg::execute(appid);
                 });
@@ -214,6 +218,8 @@ impl<'a> GameDetails<'a> {
                 .clicked()
             {
                 let appid = game.app_id();
+                *status_message = Some("Launching protontricks...".to_string());
+                *status_time = ui.input(|i| i.time);
                 thread::spawn(move || {
                     protontricks::execute(appid, &[]);
                 });
@@ -504,6 +510,8 @@ impl<'a> GameDetails<'a> {
         validation_results: &mut Vec<CheckResult>,
         tools: &BTreeMap<String, bool>,
         configs: &mut HashMap<u32, GameConfig>,
+        status_message: &mut Option<String>,
+        status_time: &mut f64,
     ) {
         if let Some(game) = self.game {
             self.game_title_bar(ui, game);
@@ -547,6 +555,8 @@ impl<'a> GameDetails<'a> {
                             validation_dialog_open,
                             validation_results,
                             tools,
+                            status_message,
+                            status_time,
                         );
                     });
                 });
