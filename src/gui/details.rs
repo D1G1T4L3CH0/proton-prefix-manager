@@ -32,6 +32,13 @@ pub struct GameConfig {
     cloud_sync: bool,
 }
 
+#[derive(Clone, Default)]
+pub struct PrefixInfo {
+    pub version: Option<String>,
+    pub has_dxvk: bool,
+    pub has_vkd3d: bool,
+}
+
 impl<'a> GameDetails<'a> {
     pub fn new(game: Option<&'a GameInfo>) -> Self {
         Self {
@@ -319,6 +326,12 @@ impl<'a> GameDetails<'a> {
     }
 
     fn list_proton_versions() -> Vec<String> {
+        use once_cell::sync::OnceCell;
+        static CACHE: OnceCell<Vec<String>> = OnceCell::new();
+        if let Some(v) = CACHE.get() {
+            return v.clone();
+        }
+
         let mut versions = Vec::new();
         if let Ok(libraries) = steam::get_steam_libraries() {
             for lib in libraries {
@@ -346,8 +359,10 @@ impl<'a> GameDetails<'a> {
                 }
             }
         }
+
         versions.sort();
         versions.dedup();
+        let _ = CACHE.set(versions.clone());
         versions
     }
 
@@ -518,6 +533,7 @@ impl<'a> GameDetails<'a> {
         validation_dialog_open: &mut bool,
         validation_results: &mut Vec<CheckResult>,
         configs: &mut HashMap<u32, GameConfig>,
+        info_cache: &mut HashMap<u32, PrefixInfo>,
     ) {
         if let Some(game) = self.game {
             self.game_title_bar(ui, game);
@@ -559,21 +575,22 @@ impl<'a> GameDetails<'a> {
             egui::CollapsingHeader::new("🚀 Proton Information")
                 .default_open(true)
                 .show(ui, |ui| {
-                    if let Some(version) = detect_proton_version(game.prefix_path()) {
+                    let info = info_cache
+                        .entry(game.app_id())
+                        .or_insert_with(|| collect_prefix_info(game.prefix_path()));
+                    if let Some(version) = &info.version {
                         ui.horizontal(|ui| {
                             ui.label("Version:");
-                            ui.monospace(&version);
+                            ui.monospace(version);
                         });
-                        log::debug!("Displaying Proton version: {}", version);
                     } else {
                         ui.label("Proton version could not be detected");
-                        log::debug!("No Proton version to display");
                     }
 
-                    if has_dxvk(game.prefix_path()) {
+                    if info.has_dxvk {
                         ui.label("✓ DXVK is enabled");
                     }
-                    if has_vkd3d(game.prefix_path()) {
+                    if info.has_vkd3d {
                         ui.label("✓ VKD3D is enabled");
                     }
                 });
@@ -814,6 +831,14 @@ fn has_dxvk(prefix_path: &Path) -> bool {
 fn has_vkd3d(prefix_path: &Path) -> bool {
     let dll_path = prefix_path.join("pfx/drive_c/windows/system32");
     dll_path.join("d3d12.dll").exists()
+}
+
+pub fn collect_prefix_info(prefix_path: &Path) -> PrefixInfo {
+    PrefixInfo {
+        version: detect_proton_version(prefix_path),
+        has_dxvk: has_dxvk(prefix_path),
+        has_vkd3d: has_vkd3d(prefix_path),
+    }
 }
 
 fn find_install_dir(app_id: u32) -> Option<std::path::PathBuf> {
