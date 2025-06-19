@@ -529,7 +529,7 @@ impl<'a> GameDetails<'a> {
                     if ui.button("Repair Prefix").clicked() {
                         if tfd::message_box_yes_no(
                             "Repair Prefix",
-                            "Attempt to repair the prefix?",
+                            "This will recreate missing directories and run 'wineboot' to regenerate registry files. Continue?",
                             tfd::MessageBoxIcon::Question,
                             tfd::YesNo::Yes,
                         ) == tfd::YesNo::Yes
