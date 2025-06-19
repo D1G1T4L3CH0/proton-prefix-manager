@@ -25,6 +25,7 @@ pub struct ProtonPrefixManagerApp {
     search_changed: bool,
     error_message: Option<String>,
     status_message: Option<String>,
+    last_status_update: f64,
     dark_mode: bool,
     restore_dialog_open: bool,
     delete_dialog_open: bool,
@@ -52,6 +53,7 @@ impl Default for ProtonPrefixManagerApp {
             search_changed: false,
             error_message: None,
             status_message: Some("Loading...".to_string()),
+            last_status_update: 0.0,
             dark_mode: true,
             restore_dialog_open: false,
             delete_dialog_open: false,
@@ -98,8 +100,7 @@ impl ProtonPrefixManagerApp {
 
     fn sort_filtered_games(&mut self) {
         let opt = self.sort_option;
-        self.filtered_games
-            .sort_by(|a, b| compare_games(a, b, opt));
+        self.filtered_games.sort_by(|a, b| compare_games(a, b, opt));
     }
 
     fn search_games(&mut self) {
@@ -182,6 +183,12 @@ impl eframe::App for ProtonPrefixManagerApp {
         // Apply theme
         self.apply_theme(ctx);
 
+        // Clear status message after a short delay
+        let current_time = ctx.input(|i| i.time);
+        if self.status_message.is_some() && current_time - self.last_status_update > 5.0 {
+            self.status_message = None;
+        }
+
         // Check if loading is complete
         if self.loading {
             if let Ok(games) = self.installed_games.lock() {
@@ -219,6 +226,7 @@ impl eframe::App for ProtonPrefixManagerApp {
 
         if self.search_changed {
             self.search_games();
+            self.last_status_update = ctx.input(|i| i.time);
         }
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -316,8 +324,11 @@ impl eframe::App for ProtonPrefixManagerApp {
             egui::SidePanel::left("game_list_panel")
                 .resizable(true)
                 .show(ctx, |ui| {
-                    let changed = GameList::new(&self.filtered_games)
-                        .show(ui, &mut self.selected_game, &mut self.sort_option);
+                    let changed = GameList::new(&self.filtered_games).show(
+                        ui,
+                        &mut self.selected_game,
+                        &mut self.sort_option,
+                    );
                     if changed {
                         self.sort_filtered_games();
                     }
@@ -347,6 +358,8 @@ impl eframe::App for ProtonPrefixManagerApp {
                             &mut self.validation_results,
                             &self.tool_status,
                             &mut self.config_cache,
+                            &mut self.status_message,
+                            &mut self.last_status_update,
                         );
                     });
             });
