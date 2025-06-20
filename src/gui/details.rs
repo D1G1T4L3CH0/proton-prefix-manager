@@ -94,11 +94,9 @@ impl<'a> GameDetails<'a> {
             term_button.on_hover_text(format!("Open terminal at: {}", path_str));
         });
 
-        ui.add(
-            egui::Label::new(
-                egui::RichText::new(path_str).small().monospace(),
-            ),
-        );
+        ui.add(egui::Label::new(
+            egui::RichText::new(path_str).small().monospace(),
+        ));
         ui.add_space(4.0);
     }
 
@@ -154,21 +152,6 @@ impl<'a> GameDetails<'a> {
             });
 
             ui.menu_button("Troubleshooting ▾", |ui| {
-                if ui
-                    .add_enabled(
-                        *tools.get("terminal").unwrap_or(&false),
-                        egui::Button::new("Terminal"),
-                    )
-                    .clicked()
-                {
-                    let path = game.prefix_path().to_path_buf();
-                    thread::spawn(move || {
-                        if let Err(e) = terminal::open_terminal(&path) {
-                            eprintln!("Failed to open terminal: {}", e);
-                        }
-                    });
-                    ui.close_menu();
-                }
                 if ui
                     .add_enabled(
                         *tools.get("winecfg").unwrap_or(&false),
