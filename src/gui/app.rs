@@ -14,8 +14,8 @@ use eframe::egui::Modal;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{self, Receiver};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use tinyfiledialogs as tfd;
 
@@ -488,11 +488,13 @@ impl eframe::App for ProtonPrefixManagerApp {
                 }
             }
 
+            let area = Modal::default_area(egui::Id::new("repair_modal"))
+                .default_size(egui::vec2(240.0, 80.0));
             Modal::new(egui::Id::new("repair_modal"))
+                .area(area)
                 .frame(egui::Frame::window(&ctx.style()))
                 .show(ctx, |ui| {
-                    ui.set_min_width(200.0);
-                    ui.centered_and_justified(|ui| {
+                    ui.vertical_centered(|ui| {
                         ui.spinner();
                         ui.label("Repairing prefix...");
                     });
