@@ -1,6 +1,6 @@
 use super::advanced_search::{advanced_search_dialog, AdvancedSearchState};
 use super::backup_manager::BackupManagerWindow;
-use super::details::{GameConfig, GameDetails, PrefixInfo};
+use super::details::{Action, GameConfig, GameDetails, PrefixInfo};
 use super::game_list::{compare_games, GameList};
 use super::runtime_cleaner::RuntimeCleanerWindow;
 use super::SortOption;
@@ -49,6 +49,9 @@ pub struct ProtonPrefixManagerApp {
     show_repair_dialog: bool,
     repair_rx: Option<Receiver<crate::error::Result<()>>>,
     repair_prefix: Option<PathBuf>,
+    show_task_dialog: bool,
+    task_message: String,
+    task_rx: Option<Receiver<crate::error::Result<String>>>,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -87,6 +90,9 @@ impl Default for ProtonPrefixManagerApp {
             show_repair_dialog: false,
             repair_rx: None,
             repair_prefix: None,
+            show_task_dialog: false,
+            task_message: String::new(),
+            task_rx: None,
         }
     }
 }
@@ -217,6 +223,51 @@ impl ProtonPrefixManagerApp {
         self.repair_rx = Some(rx);
         self.repair_prefix = Some(prefix);
     }
+
+    fn start_task<F>(&mut self, msg: &str, task: F)
+    where
+        F: FnOnce() -> crate::error::Result<String> + Send + 'static,
+    {
+        self.show_task_dialog = true;
+        self.task_message = msg.to_string();
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let res = task();
+            let _ = tx.send(res);
+        });
+        self.task_rx = Some(rx);
+    }
+
+    fn handle_action(&mut self, action: Action) {
+        use Action::*;
+        match action {
+            Repair(p) => self.start_repair(p),
+            Backup { app_id, prefix } => {
+                self.start_task("Creating backup...", move || {
+                    crate::utils::backup::create_backup(&prefix, app_id)
+                        .map(|p| format!("Backup created at {}", p.display()))
+                });
+            }
+            Restore { backup, prefix } => {
+                self.start_task("Restoring backup...", move || {
+                    crate::utils::backup::restore_prefix(&backup, &prefix)
+                        .map(|_| "Prefix restored".to_string())
+                });
+            }
+            DeleteBackup { backup } => {
+                self.start_task("Deleting backup...", move || {
+                    crate::utils::backup::delete_backup(&backup)
+                        .map(|_| "Backup removed".to_string())
+                });
+            }
+            Reset { prefix } => {
+                self.start_task("Deleting prefix...", move || {
+                    crate::utils::backup::reset_prefix(&prefix)
+                        .map(|_| "Prefix deleted".to_string())
+                });
+            }
+        }
+    }
 }
 
 impl eframe::App for ProtonPrefixManagerApp {
@@ -303,7 +354,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                     }
                     if let Some(game) = self.selected_game.as_ref() {
                         let details = GameDetails::new(Some(game));
-                        details.prefix_tools_menu(
+                        if let Some(action) = details.prefix_tools_menu(
                             ui,
                             game,
                             &mut self.restore_dialog_open,
@@ -313,7 +364,9 @@ impl eframe::App for ProtonPrefixManagerApp {
                             &self.tool_status,
                             &mut self.status_message,
                             &mut self.last_status_update,
-                        );
+                        ) {
+                            self.handle_action(action);
+                        }
                     }
                 });
             });
@@ -421,7 +474,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                     .auto_shrink([false; 2])
                     .id_salt("details_panel")
                     .show(ui, |ui| {
-                        let repair = GameDetails::new(self.selected_game.as_ref()).show(
+                        let action = GameDetails::new(self.selected_game.as_ref()).show(
                             ui,
                             &mut self.restore_dialog_open,
                             &mut self.delete_dialog_open,
@@ -430,8 +483,8 @@ impl eframe::App for ProtonPrefixManagerApp {
                             &mut self.config_cache,
                             &mut self.prefix_cache,
                         );
-                        if let Some(p) = repair {
-                            self.start_repair(p);
+                        if let Some(act) = action {
+                            self.handle_action(act);
                         }
                     });
             });
@@ -497,6 +550,39 @@ impl eframe::App for ProtonPrefixManagerApp {
                     ui.vertical_centered(|ui| {
                         ui.spinner();
                         ui.label("Repairing prefix...");
+                    });
+                });
+        }
+
+        if self.show_task_dialog {
+            if let Some(rx) = &self.task_rx {
+                if let Ok(res) = rx.try_recv() {
+                    self.show_task_dialog = false;
+                    self.task_rx = None;
+                    match res {
+                        Ok(msg) => {
+                            tfd::message_box_ok("Task", &msg, tfd::MessageBoxIcon::Info);
+                        }
+                        Err(e) => {
+                            tfd::message_box_ok(
+                                "Task failed",
+                                &format!("{}", e),
+                                tfd::MessageBoxIcon::Error,
+                            );
+                        }
+                    }
+                }
+            }
+
+            let area = Modal::default_area(egui::Id::new("task_modal"))
+                .default_size(egui::vec2(240.0, 80.0));
+            Modal::new(egui::Id::new("task_modal"))
+                .area(area)
+                .frame(egui::Frame::window(&ctx.style()))
+                .show(ctx, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.spinner();
+                        ui.label(&self.task_message);
                     });
                 });
         }
