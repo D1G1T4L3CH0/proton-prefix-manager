@@ -65,6 +65,28 @@ fn find_proton_runtime(version: &str) -> Option<PathBuf> {
                 }
             }
         }
+
+        // fuzzy search if direct match failed
+        let base = normalized
+            .trim_start_matches("Proton")
+            .trim()
+            .split(|c| c == '-' || c == ' ')
+            .next()
+            .unwrap_or(normalized)
+            .to_lowercase();
+        for lib in &libs {
+            let common = lib.join("steamapps/common");
+            if let Ok(entries) = fs::read_dir(&common) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                        let name = entry.file_name().to_string_lossy().to_lowercase();
+                        if name.contains(&normalized.to_lowercase()) || name.contains(&base) {
+                            return Some(entry.path());
+                        }
+                    }
+                }
+            }
+        }
     }
 
     for dir in steam_paths::compatibilitytools_dirs() {
@@ -72,6 +94,24 @@ fn find_proton_runtime(version: &str) -> Option<PathBuf> {
             let path = dir.join(cand);
             if path.exists() {
                 return Some(path);
+            }
+        }
+
+        let base = normalized
+            .trim_start_matches("Proton")
+            .trim()
+            .split(|c| c == '-' || c == ' ')
+            .next()
+            .unwrap_or(normalized)
+            .to_lowercase();
+        if let Ok(entries) = fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                    let name = entry.file_name().to_string_lossy().to_lowercase();
+                    if name.contains(&normalized.to_lowercase()) || name.contains(&base) {
+                        return Some(entry.path());
+                    }
+                }
             }
         }
     }
@@ -120,6 +160,7 @@ pub fn repair_prefix(prefix: &Path) -> Result<()> {
             if let Some(wb) = find_wineboot(&runtime) {
                 log::debug!("using wineboot at {:?}", wb);
                 let status = Command::new(wb)
+                    .arg("-u")
                     .env("WINEPREFIX", &pfx)
                     .status()
                     .map_err(Error::from)?;
@@ -139,6 +180,7 @@ pub fn repair_prefix(prefix: &Path) -> Result<()> {
 
     log::debug!("falling back to system wineboot");
     let status = Command::new("wineboot")
+        .arg("-u")
         .env("WINEPREFIX", &pfx)
         .status()
         .map_err(Error::from)?;
