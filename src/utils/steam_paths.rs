@@ -89,5 +89,18 @@ pub fn compatibilitytools_dirs() -> Vec<PathBuf> {
             }
         }
     }
+
+    if let Ok(libraries) = crate::core::steam::get_steam_libraries() {
+        for lib in libraries {
+            let p = lib.path().join("compatibilitytools.d");
+            if p.exists() {
+                let canon = fs::canonicalize(&p).unwrap_or(p.clone());
+                if seen.insert(canon.clone()) {
+                    dirs.push(canon);
+                }
+            }
+        }
+    }
+
     dirs
 }
