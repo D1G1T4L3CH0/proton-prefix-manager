@@ -1,3 +1,4 @@
+use super::sort::{sort_games, GameSortKey};
 use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::{manifest as manifest_utils, user_config};
@@ -192,27 +193,31 @@ impl AdvancedSearchState {
             }
         }
 
-        let sort_key = self.sort_key;
-        self.results.sort_by(|a, b| match sort_key {
-            SortKey::LastPlayed => a.last_played().cmp(&b.last_played()),
-            SortKey::Name => a.name().cmp(b.name()),
-            SortKey::AppId => a.app_id().cmp(&b.app_id()),
-            SortKey::ProtonVersion => {
-                let pa = self
-                    .config_cache
-                    .get(&a.app_id())
-                    .and_then(|f| f.proton.clone())
-                    .unwrap_or_default();
-                let pb = self
-                    .config_cache
-                    .get(&b.app_id())
-                    .and_then(|f| f.proton.clone())
-                    .unwrap_or_default();
-                pa.cmp(&pb)
+        let descending = self.descending;
+        match self.sort_key {
+            SortKey::LastPlayed => {
+                sort_games(&mut self.results, GameSortKey::LastPlayed, descending)
             }
-        });
-        if self.descending {
-            self.results.reverse();
+            SortKey::Name => sort_games(&mut self.results, GameSortKey::Name, descending),
+            SortKey::AppId => sort_games(&mut self.results, GameSortKey::AppId, descending),
+            SortKey::ProtonVersion => {
+                self.results.sort_by(|a, b| {
+                    let pa = self
+                        .config_cache
+                        .get(&a.app_id())
+                        .and_then(|f| f.proton.clone())
+                        .unwrap_or_default();
+                    let pb = self
+                        .config_cache
+                        .get(&b.app_id())
+                        .and_then(|f| f.proton.clone())
+                        .unwrap_or_default();
+                    pa.cmp(&pb)
+                });
+                if descending {
+                    self.results.reverse();
+                }
+            }
         }
     }
 }
@@ -279,7 +284,7 @@ pub fn advanced_search_dialog(
                     ui.separator();
                     egui::ComboBox::from_label("Sort By")
                         .selected_text(match state.sort_key {
-                            SortKey::LastPlayed => "Last Modified",
+                            SortKey::LastPlayed => "Last Played",
                             SortKey::Name => "Name",
                             SortKey::AppId => "AppID",
                             SortKey::ProtonVersion => "Proton Version",
@@ -289,7 +294,7 @@ pub fn advanced_search_dialog(
                                 .selectable_value(
                                     &mut state.sort_key,
                                     SortKey::LastPlayed,
-                                    "Last Modified",
+                                    "Last Played",
                                 )
                                 .changed();
                             changed |= ui
