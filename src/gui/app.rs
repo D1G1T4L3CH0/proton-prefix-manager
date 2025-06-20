@@ -491,6 +491,7 @@ impl eframe::App for ProtonPrefixManagerApp {
             Modal::new(egui::Id::new("repair_modal"))
                 .frame(egui::Frame::window(&ctx.style()))
                 .show(ctx, |ui| {
+                    ui.set_min_width(200.0);
                     ui.centered_and_justified(|ui| {
                         ui.spinner();
                         ui.label("Repairing prefix...");
