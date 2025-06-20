@@ -577,7 +577,8 @@ impl<'a> GameDetails<'a> {
                     });
                     ui.horizontal(|ui| {
                         ui.label("Launch Options:");
-                        ui.add(
+                        ui.add_sized(
+                            [300.0, 0.0],
                             egui::TextEdit::singleline(&mut cfg.launch_options)
                                 .id_salt("launch_options")
                                 .hint_text("e.g. PROTON_LOG=1"),
