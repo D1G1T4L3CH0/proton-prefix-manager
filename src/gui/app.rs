@@ -10,6 +10,8 @@ use crate::utils::dependencies::scan_tools;
 use crate::utils::terminal;
 use eframe::egui;
 use eframe::egui::Modal;
+use eframe::egui::{FontDefinitions};
+use egui_phosphor::{self as phosphor, regular};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver};
@@ -202,6 +204,12 @@ impl ProtonPrefixManagerApp {
         }
     }
 
+    pub fn setup_fonts(ctx: &egui::Context) {
+        let mut fonts = FontDefinitions::default();
+        phosphor::add_to_fonts(&mut fonts, phosphor::Variant::Regular);
+        ctx.set_fonts(fonts);
+    }
+
     fn start_task<F>(&mut self, msg: &str, task: F)
     where
         F: FnOnce() -> crate::error::Result<String> + Send + 'static,
@@ -302,11 +310,11 @@ impl eframe::App for ProtonPrefixManagerApp {
             ui.horizontal(|ui| {
                 ui.heading("Proton Prefix Manager");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button(if self.dark_mode { "☀" } else { "🌙" }).clicked() {
+                    if ui.button(if self.dark_mode { regular::SUN } else { regular::MOON }).clicked() {
                         self.toggle_theme(ctx);
                     }
                     if ui
-                        .button("🔎 Advanced Search")
+                        .button(format!("{} Advanced Search", regular::MAGNIFYING_GLASS))
                         .on_hover_text("Advanced Search")
                         .clicked()
                     {
@@ -316,14 +324,14 @@ impl eframe::App for ProtonPrefixManagerApp {
                         self.show_advanced_search = true;
                     }
                     if ui
-                        .button("💾 Manage Backups")
+                        .button(format!("{} Manage Backups", regular::FLOPPY_DISK))
                         .on_hover_text("View and manage backups for all games.")
                         .clicked()
                     {
                         self.show_backup_manager = true;
                     }
                     if ui
-                        .button("🧹 Steam Runtime Cleaner")
+                        .button(format!("{} Steam Runtime Cleaner", regular::BROOM))
                         .on_hover_text("Find leftover data to delete.")
                         .clicked()
                     {
@@ -349,8 +357,8 @@ impl eframe::App for ProtonPrefixManagerApp {
             ui.separator();
 
             ui.horizontal(|ui| {
-                let search_icon = if self.dark_mode { "🔍 " } else { "🔎 " };
-                ui.label(format!("{}Search:", search_icon));
+                let search_icon = if self.dark_mode { regular::MAGNIFYING_GLASS } else { regular::MAGNIFYING_GLASS };
+                ui.label(format!("{} Search:", search_icon));
 
                 // Create a frame around the search box to make it more visible
                 egui::Frame::new()
@@ -371,7 +379,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                     });
 
                 if !self.search_query.is_empty() {
-                    if ui.button("❌").clicked() {
+                    if ui.button(regular::X).clicked() {
                         self.search_query.clear();
                         self.search_changed = true;
                     }

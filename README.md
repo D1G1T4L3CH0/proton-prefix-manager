@@ -36,6 +36,7 @@ proton-prefix-manager
 ```
 
 The GUI lists your installed Steam games and shows details about each prefix. You can copy or open the prefix path, run Protontricks for the selected game, launch `winecfg`, and follow external links such as SteamDB or ProtonDB. Game settings let you choose from built‑in and custom Proton versions discovered in `compatibilitytools.d`.
+Icons are bundled with the application via the `egui-phosphor` crate, so no extra font setup is required.
 
 ### Command line interface
 
@@ -127,6 +128,7 @@ proton-prefix-manager config-paths
 The CLI supports JSON (`--json`), plain text (`--plain`), and custom-delimited output using `--delimiter`.
 
 Use `--debug` to print detailed information about paths and files the application interacts with. This enables verbose logging without having to set the `RUST_LOG` environment variable.
+
 
 ## Debug logging
 

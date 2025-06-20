@@ -9,6 +9,7 @@ use crate::utils::{library, manifest as manifest_utils};
 use eframe::egui;
 use eframe::egui::Modal;
 use egui::menu;
+use egui_phosphor::regular;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
@@ -65,7 +66,7 @@ impl<'a> GameDetails<'a> {
             ui.strong(label);
 
             // Copy button
-            let copy_text = if is_copied { "✔ Copied" } else { "📋 Copy" };
+            let copy_text = if is_copied { format!("{} Copied", regular::CHECK) } else { format!("{} Copy", regular::COPY) };
             let copy_button = ui.button(copy_text);
             if copy_button.clicked() {
                 ui.ctx().copy_text(path_str.clone());
@@ -75,7 +76,7 @@ impl<'a> GameDetails<'a> {
             copy_button.on_hover_text(format!("Copy path: {}", path_str));
 
             // Open folder button
-            let open_button = ui.button("📂 Open");
+            let open_button = ui.button(format!("{} Open", regular::FOLDER_OPEN));
             if open_button.clicked() {
                 let _ = open::that(path);
             }
@@ -84,7 +85,7 @@ impl<'a> GameDetails<'a> {
             // Terminal button
             let term_button = ui.add_enabled(
                 terminal::terminal_available(),
-                egui::Button::new("🖥 Terminal"),
+                egui::Button::new(format!("{} Terminal", regular::TERMINAL)),
             );
             if term_button.clicked() {
                 if let Err(e) = terminal::open_terminal(path) {
@@ -120,7 +121,7 @@ impl<'a> GameDetails<'a> {
         status_time: &mut f64,
     ) -> Option<Action> {
         let mut action = None;
-        menu::menu_button(ui, "Prefix Tools ▾", |ui| {
+        menu::menu_button(ui, &format!("{} Prefix Tools ▾", regular::WRENCH), |ui| {
             ui.menu_button("Prefix ▾", |ui| {
                 if ui.button("Backup").clicked() {
                     action = Some(Action::Backup {
@@ -473,7 +474,7 @@ impl<'a> GameDetails<'a> {
                 });
 
             // Proton Information
-            egui::CollapsingHeader::new("🚀 Proton Information")
+            egui::CollapsingHeader::new(format!("{} Proton Information", regular::ROCKET))
                 .default_open(true)
                 .show(ui, |ui| {
                     let info = info_cache
@@ -489,21 +490,21 @@ impl<'a> GameDetails<'a> {
                     }
 
                     if info.has_dxvk {
-                        ui.label("✓ DXVK is enabled");
+                        ui.label(format!("{} DXVK is enabled", regular::CHECK));
                     }
                     if info.has_vkd3d {
-                        ui.label("✓ VKD3D is enabled");
+                        ui.label(format!("{} VKD3D is enabled", regular::CHECK));
                     }
                 });
 
             // Game Details
-            egui::CollapsingHeader::new("🎮 Game Details")
+            egui::CollapsingHeader::new(format!("{} Game Details", regular::GAME_CONTROLLER))
                 .default_open(true)
                 .show(ui, |ui| {
                     ui.label(if game.has_manifest() {
-                        "✓ Game has a manifest file"
+                        format!("{} Game has a manifest file", regular::CHECK)
                     } else {
-                        "❌ No manifest file found"
+                        format!("{} No manifest file found", regular::X)
                     });
 
                     // Last played time
@@ -536,9 +537,9 @@ impl<'a> GameDetails<'a> {
                 || !cfg.auto_update
                 || !cfg.cloud_sync;
             let header_label = if has_custom {
-                "⚙ Game Settings *"
+                format!("{} Game Settings *", regular::GEAR)
             } else {
-                "⚙ Game Settings"
+                format!("{} Game Settings", regular::GEAR)
             };
             egui::CollapsingHeader::new(header_label)
                 .id_salt("game_settings_header")
@@ -596,15 +597,15 @@ impl<'a> GameDetails<'a> {
 
             // External Links
             ui.horizontal(|ui| {
-                if ui.button("🔗 SteamDB").clicked() {
+                if ui.button(format!("{} SteamDB", regular::LINK)).clicked() {
                     let _ = open::that(format!("https://steamdb.info/app/{}/", game.app_id()));
                 }
 
-                if ui.button("🎮 ProtonDB").clicked() {
+                if ui.button(format!("{} ProtonDB", regular::GAME_CONTROLLER)).clicked() {
                     let _ = open::that(format!("https://www.protondb.com/app/{}", game.app_id()));
                 }
 
-                if ui.button("📚 PCGamingWiki").clicked() {
+                if ui.button(format!("{} PCGamingWiki", regular::BOOKS)).clicked() {
                     let _ = open::that(format!(
                         "https://www.pcgamingwiki.com/api/appid.php?appid={}",
                         game.app_id()

@@ -1,6 +1,7 @@
 use crate::utils::runtime_cleaner::{delete_item, scan, RuntimeItem, ScanResults};
 use eframe::egui::{self, Modal};
 use open;
+use egui_phosphor::regular;
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use tinyfiledialogs as tfd;
@@ -162,7 +163,7 @@ impl RuntimeCleanerWindow {
                     ui.horizontal(|ui| {
                         ui.checkbox(&mut item.selected, "");
                         if ui
-                            .button("📂")
+                            .button(regular::FOLDER_OPEN)
                             .on_hover_text("Show in File Manager")
                             .clicked()
                         {
@@ -170,7 +171,7 @@ impl RuntimeCleanerWindow {
                         }
                         if let Some(appid) = item.app_id {
                             if ui
-                                .button("🔗")
+                                .button(regular::LINK)
                                 .on_hover_text(format!("Open SteamDB page for {}", appid))
                                 .clicked()
                             {
