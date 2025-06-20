@@ -132,6 +132,23 @@ fn find_wineboot(runtime: &Path) -> Option<PathBuf> {
     None
 }
 
+fn find_wine(runtime: &Path) -> Option<PathBuf> {
+    let candidates = [
+        runtime.join("dist/bin/wine64"),
+        runtime.join("dist/bin/wine"),
+        runtime.join("files/bin/wine64"),
+        runtime.join("files/bin/wine"),
+        runtime.join("bin/wine64"),
+        runtime.join("bin/wine"),
+    ];
+    for c in candidates.iter() {
+        if c.exists() {
+            return Some(c.clone());
+        }
+    }
+    None
+}
+
 /// Attempt to repair a Proton prefix.
 ///
 /// This will recreate critical folders and run `wineboot` to
@@ -160,6 +177,18 @@ pub fn repair_prefix(prefix: &Path) -> Result<()> {
             if let Some(wb) = find_wineboot(&runtime) {
                 log::debug!("using wineboot at {:?}", wb);
                 let status = Command::new(wb)
+                    .arg("-u")
+                    .env("WINEPREFIX", &pfx)
+                    .status()
+                    .map_err(Error::from)?;
+                if !status.success() {
+                    return Err(Error::FileSystemError("wineboot failed".into()));
+                }
+                return Ok(());
+            } else if let Some(wine) = find_wine(&runtime) {
+                log::debug!("using wine at {:?} to run wineboot", wine);
+                let status = Command::new(wine)
+                    .arg("wineboot")
                     .arg("-u")
                     .env("WINEPREFIX", &pfx)
                     .status()
