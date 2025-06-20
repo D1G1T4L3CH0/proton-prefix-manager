@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tinyfiledialogs as tfd;
@@ -37,6 +37,15 @@ pub struct PrefixInfo {
     pub version: Option<String>,
     pub has_dxvk: bool,
     pub has_vkd3d: bool,
+}
+
+#[derive(Debug)]
+pub enum Action {
+    Repair(PathBuf),
+    Backup { app_id: u32, prefix: PathBuf },
+    Restore { backup: PathBuf, prefix: PathBuf },
+    DeleteBackup { backup: PathBuf },
+    Reset { prefix: PathBuf },
 }
 
 impl<'a> GameDetails<'a> {
@@ -115,22 +124,15 @@ impl<'a> GameDetails<'a> {
         tools: &BTreeMap<String, bool>,
         status_message: &mut Option<String>,
         status_time: &mut f64,
-    ) {
+    ) -> Option<Action> {
+        let mut action = None;
         menu::menu_button(ui, "Prefix Tools ▾", |ui| {
             ui.menu_button("Prefix ▾", |ui| {
                 if ui.button("Backup").clicked() {
-                    match backup_utils::create_backup(game.prefix_path(), game.app_id()) {
-                        Ok(p) => tfd::message_box_ok(
-                            "Backup",
-                            &format!("Backup created at {}", p.display()),
-                            tfd::MessageBoxIcon::Info,
-                        ),
-                        Err(e) => tfd::message_box_ok(
-                            "Backup failed",
-                            &format!("{}", e),
-                            tfd::MessageBoxIcon::Error,
-                        ),
-                    }
+                    action = Some(Action::Backup {
+                        app_id: game.app_id(),
+                        prefix: game.prefix_path().to_path_buf(),
+                    });
                     ui.close_menu();
                 }
                 if ui.button("Restore").clicked() {
@@ -149,16 +151,7 @@ impl<'a> GameDetails<'a> {
                         tfd::YesNo::No,
                     ) == tfd::YesNo::Yes
                     {
-                        match backup_utils::reset_prefix(game.prefix_path()) {
-                            Ok(_) => {
-                                tfd::message_box_ok("Reset", "Prefix deleted", tfd::MessageBoxIcon::Info)
-                            }
-                            Err(e) => tfd::message_box_ok(
-                                "Reset failed",
-                                &format!("{}", e),
-                                tfd::MessageBoxIcon::Error,
-                            ),
-                        }
+                        action = Some(Action::Reset { prefix: game.prefix_path().to_path_buf() });
                     }
                     ui.close_menu();
                 }
@@ -236,6 +229,7 @@ impl<'a> GameDetails<'a> {
         })
         .response
         .on_hover_text("Tools for managing this game's Proton prefix");
+        action
     }
 
     fn prefix_available(&self) -> bool {
@@ -366,9 +360,10 @@ impl<'a> GameDetails<'a> {
         versions
     }
 
-    fn restore_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) {
+    fn restore_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) -> Option<Action> {
+        let mut action = None;
         if !*open {
-            return;
+            return action;
         }
 
         let mut should_close = false;
@@ -391,18 +386,10 @@ impl<'a> GameDetails<'a> {
                     for backup in backups {
                         let label = backup_utils::format_backup_name(&backup);
                         if ui.button(label).clicked() {
-                            match backup_utils::restore_prefix(&backup, game.prefix_path()) {
-                                Ok(_) => tfd::message_box_ok(
-                                    "Restore",
-                                    "Prefix restored",
-                                    tfd::MessageBoxIcon::Info,
-                                ),
-                                Err(e) => tfd::message_box_ok(
-                                    "Restore failed",
-                                    &format!("{}", e),
-                                    tfd::MessageBoxIcon::Error,
-                                ),
-                            };
+                            action = Some(Action::Restore {
+                                backup: backup.clone(),
+                                prefix: game.prefix_path().to_path_buf(),
+                            });
                             should_close = true;
                         }
                     }
@@ -412,11 +399,13 @@ impl<'a> GameDetails<'a> {
         if response.should_close() || should_close {
             *open = false;
         }
+        action
     }
 
-    fn delete_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) {
+    fn delete_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) -> Option<Action> {
+        let mut action = None;
         if !*open {
-            return;
+            return action;
         }
 
         let mut should_close = false;
@@ -439,18 +428,7 @@ impl<'a> GameDetails<'a> {
                     for backup in backups {
                         let label = backup_utils::format_backup_name(&backup);
                         if ui.button(label).clicked() {
-                            match backup_utils::delete_backup(&backup) {
-                                Ok(_) => tfd::message_box_ok(
-                                    "Delete",
-                                    "Backup removed",
-                                    tfd::MessageBoxIcon::Info,
-                                ),
-                                Err(e) => tfd::message_box_ok(
-                                    "Delete failed",
-                                    &format!("{}", e),
-                                    tfd::MessageBoxIcon::Error,
-                                ),
-                            };
+                            action = Some(Action::DeleteBackup { backup: backup.clone() });
                             should_close = true;
                         }
                     }
@@ -460,6 +438,7 @@ impl<'a> GameDetails<'a> {
         if response.should_close() || should_close {
             *open = false;
         }
+        action
     }
 
     fn validate_window(
@@ -468,13 +447,13 @@ impl<'a> GameDetails<'a> {
         results: &mut Vec<CheckResult>,
         prefix: &std::path::Path,
         open: &mut bool,
-    ) -> Option<std::path::PathBuf> {
+    ) -> Option<Action> {
         if !*open {
             return None;
         }
 
         let mut should_close = false;
-        let mut repair_request = None;
+        let mut repair_request: Option<Action> = None;
         let response = Modal::new(egui::Id::new("validate_modal"))
             .frame(egui::Frame::window(&ctx.style()))
             .show(ctx, |ui| {
@@ -535,7 +514,7 @@ impl<'a> GameDetails<'a> {
                             tfd::YesNo::Yes,
                         ) == tfd::YesNo::Yes
                         {
-                            repair_request = Some(prefix.to_path_buf());
+                            repair_request = Some(Action::Repair(prefix.to_path_buf()));
                         }
                     }
                 }
@@ -556,7 +535,7 @@ impl<'a> GameDetails<'a> {
         validation_results: &mut Vec<CheckResult>,
         configs: &mut HashMap<u32, GameConfig>,
         info_cache: &mut HashMap<u32, PrefixInfo>,
-    ) -> Option<std::path::PathBuf> {
+    ) -> Option<Action> {
         let mut repair_request = None;
         if let Some(game) = self.game {
             self.game_title_bar(ui, game);
@@ -735,11 +714,15 @@ impl<'a> GameDetails<'a> {
             });
 
             if *restore_dialog_open {
-                self.restore_window(ui.ctx(), game, restore_dialog_open);
+                if let Some(act) = self.restore_window(ui.ctx(), game, restore_dialog_open) {
+                    repair_request = Some(act);
+                }
             }
 
             if *delete_dialog_open {
-                self.delete_window(ui.ctx(), game, delete_dialog_open);
+                if let Some(act) = self.delete_window(ui.ctx(), game, delete_dialog_open) {
+                    repair_request = Some(act);
+                }
             }
 
             if *validation_dialog_open {
