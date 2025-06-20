@@ -3,8 +3,7 @@ use super::backup_manager::BackupManagerWindow;
 use super::details::{Action, GameConfig, GameDetails, PrefixInfo};
 use super::game_list::GameList;
 use super::runtime_cleaner::RuntimeCleanerWindow;
-use super::sort::sort_games;
-use super::SortOption;
+use super::sort::{sort_games, GameSortKey};
 use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::dependencies::scan_tools;
@@ -43,7 +42,8 @@ pub struct ProtonPrefixManagerApp {
     runtime_cleaner: RuntimeCleanerWindow,
     show_advanced_search: bool,
     adv_state: AdvancedSearchState,
-    sort_option: SortOption,
+    sort_key: GameSortKey,
+    descending: bool,
     show_task_dialog: bool,
     task_message: String,
     task_rx: Option<Receiver<crate::error::Result<String>>>,
@@ -79,7 +79,8 @@ impl Default for ProtonPrefixManagerApp {
             runtime_cleaner: RuntimeCleanerWindow::new(),
             show_advanced_search: false,
             adv_state: AdvancedSearchState::default(),
-            sort_option: SortOption::ModifiedDesc,
+            sort_key: GameSortKey::LastPlayed,
+            descending: true,
             show_task_dialog: false,
             task_message: String::new(),
             task_rx: None,
@@ -124,8 +125,7 @@ impl ProtonPrefixManagerApp {
     }
 
     fn sort_filtered_games(&mut self) {
-        let (key, desc) = self.sort_option.as_key();
-        sort_games(&mut self.filtered_games, key, desc);
+        sort_games(&mut self.filtered_games, self.sort_key, self.descending);
     }
 
     fn search_games(&mut self) {
@@ -417,7 +417,8 @@ impl eframe::App for ProtonPrefixManagerApp {
                     let changed = GameList::new(&self.filtered_games).show(
                         ui,
                         &mut self.selected_game,
-                        &mut self.sort_option,
+                        &mut self.sort_key,
+                        &mut self.descending,
                     );
                     if changed {
                         self.sort_filtered_games();

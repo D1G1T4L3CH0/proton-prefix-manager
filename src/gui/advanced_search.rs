@@ -8,20 +8,6 @@ use std::collections::HashMap;
 use std::fs;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum SortKey {
-    LastPlayed,
-    Name,
-    AppId,
-    ProtonVersion,
-}
-
-impl Default for SortKey {
-    fn default() -> Self {
-        SortKey::LastPlayed
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TriState {
     Any,
     Has,
@@ -83,7 +69,7 @@ pub struct AdvancedSearchState {
     pub cloud_sync: TriState,
     pub custom_launch: TriState,
     pub custom_proton: TriState,
-    pub sort_key: SortKey,
+    pub sort_key: GameSortKey,
     pub descending: bool,
     #[allow(dead_code)]
     last_update: f64,
@@ -101,8 +87,8 @@ impl Default for AdvancedSearchState {
             cloud_sync: TriState::Any,
             custom_launch: TriState::Any,
             custom_proton: TriState::Any,
-            sort_key: SortKey::default(),
-            descending: false,
+            sort_key: GameSortKey::default(),
+            descending: true,
             last_update: 0.0,
             results: Vec::new(),
             config_cache: HashMap::new(),
@@ -149,7 +135,7 @@ impl AdvancedSearchState {
 
     pub fn perform_search(&mut self, games: &[GameInfo]) {
         let q = self.query.to_lowercase();
-        let require_flags = self.sort_key == SortKey::ProtonVersion
+        let require_flags = self.sort_key == GameSortKey::ProtonVersion
             || self.auto_update != TriState::Any
             || self.cloud_sync != TriState::Any
             || self.custom_launch != TriState::Any
@@ -186,7 +172,7 @@ impl AdvancedSearchState {
             .cloned()
             .collect();
 
-        if self.sort_key == SortKey::ProtonVersion && require_flags {
+        if self.sort_key == GameSortKey::ProtonVersion && require_flags {
             let ids: Vec<u32> = self.results.iter().map(|g| g.app_id()).collect();
             for id in ids {
                 let _ = self.load_flags(id);
@@ -195,12 +181,15 @@ impl AdvancedSearchState {
 
         let descending = self.descending;
         match self.sort_key {
-            SortKey::LastPlayed => {
+            GameSortKey::LastPlayed => {
                 sort_games(&mut self.results, GameSortKey::LastPlayed, descending)
             }
-            SortKey::Name => sort_games(&mut self.results, GameSortKey::Name, descending),
-            SortKey::AppId => sort_games(&mut self.results, GameSortKey::AppId, descending),
-            SortKey::ProtonVersion => {
+            GameSortKey::LastUpdated => {
+                sort_games(&mut self.results, GameSortKey::LastUpdated, descending)
+            }
+            GameSortKey::Name => sort_games(&mut self.results, GameSortKey::Name, descending),
+            GameSortKey::AppId => sort_games(&mut self.results, GameSortKey::AppId, descending),
+            GameSortKey::ProtonVersion => {
                 self.results.sort_by(|a, b| {
                     let pa = self
                         .config_cache
@@ -284,29 +273,37 @@ pub fn advanced_search_dialog(
                     ui.separator();
                     egui::ComboBox::from_label("Sort By")
                         .selected_text(match state.sort_key {
-                            SortKey::LastPlayed => "Last Played",
-                            SortKey::Name => "Name",
-                            SortKey::AppId => "AppID",
-                            SortKey::ProtonVersion => "Proton Version",
+                            GameSortKey::LastPlayed => "Last Played",
+                            GameSortKey::LastUpdated => "Last Updated",
+                            GameSortKey::Name => "Name",
+                            GameSortKey::AppId => "AppID",
+                            GameSortKey::ProtonVersion => "Proton Version",
                         })
                         .show_ui(ui, |ui| {
                             changed |= ui
                                 .selectable_value(
                                     &mut state.sort_key,
-                                    SortKey::LastPlayed,
+                                    GameSortKey::LastPlayed,
                                     "Last Played",
                                 )
                                 .changed();
                             changed |= ui
-                                .selectable_value(&mut state.sort_key, SortKey::Name, "Name")
+                                .selectable_value(
+                                    &mut state.sort_key,
+                                    GameSortKey::LastUpdated,
+                                    "Last Updated",
+                                )
                                 .changed();
                             changed |= ui
-                                .selectable_value(&mut state.sort_key, SortKey::AppId, "AppID")
+                                .selectable_value(&mut state.sort_key, GameSortKey::Name, "Name")
+                                .changed();
+                            changed |= ui
+                                .selectable_value(&mut state.sort_key, GameSortKey::AppId, "AppID")
                                 .changed();
                             changed |= ui
                                 .selectable_value(
                                     &mut state.sort_key,
-                                    SortKey::ProtonVersion,
+                                    GameSortKey::ProtonVersion,
                                     "Proton Version",
                                 )
                                 .changed();
