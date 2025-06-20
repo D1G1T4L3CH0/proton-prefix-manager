@@ -10,7 +10,6 @@ pub mod list_backups;
 pub mod open;
 pub mod prefix;
 pub mod protontricks;
-pub mod repair;
 pub mod reset;
 pub mod restore;
 pub mod search;
@@ -109,12 +108,6 @@ pub enum Commands {
     DeleteBackup {
         /// Path to the backup directory
         backup: PathBuf,
-    },
-
-    /// Attempt to repair the Proton prefix
-    Repair {
-        /// The Steam App ID of the game
-        appid: u32,
     },
 
     /// Delete the existing prefix

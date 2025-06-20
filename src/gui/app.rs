@@ -7,13 +7,11 @@ use super::SortOption;
 use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::dependencies::scan_tools;
-use crate::utils::prefix_validator::CheckResult;
 use crate::utils::terminal;
 use eframe::egui;
 use eframe::egui::Modal;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -33,8 +31,7 @@ pub struct ProtonPrefixManagerApp {
     dark_mode: bool,
     restore_dialog_open: bool,
     delete_dialog_open: bool,
-    validation_dialog_open: bool,
-    validation_results: Vec<CheckResult>,
+    // removed validation and repair features
     tool_status: BTreeMap<String, bool>,
     last_tool_scan: f64,
     config_cache: HashMap<u32, GameConfig>,
@@ -46,9 +43,6 @@ pub struct ProtonPrefixManagerApp {
     show_advanced_search: bool,
     adv_state: AdvancedSearchState,
     sort_option: SortOption,
-    show_repair_dialog: bool,
-    repair_rx: Option<Receiver<crate::error::Result<()>>>,
-    repair_prefix: Option<PathBuf>,
     show_task_dialog: bool,
     task_message: String,
     task_rx: Option<Receiver<crate::error::Result<String>>>,
@@ -70,8 +64,6 @@ impl Default for ProtonPrefixManagerApp {
             dark_mode: true,
             restore_dialog_open: false,
             delete_dialog_open: false,
-            validation_dialog_open: false,
-            validation_results: Vec::new(),
             tool_status: {
                 let mut map = scan_tools(&["protontricks", "winecfg"]);
                 map.insert("terminal".to_string(), terminal::terminal_available());
@@ -87,9 +79,6 @@ impl Default for ProtonPrefixManagerApp {
             show_advanced_search: false,
             adv_state: AdvancedSearchState::default(),
             sort_option: SortOption::ModifiedDesc,
-            show_repair_dialog: false,
-            repair_rx: None,
-            repair_prefix: None,
             show_task_dialog: false,
             task_message: String::new(),
             task_rx: None,
@@ -212,18 +201,6 @@ impl ProtonPrefixManagerApp {
         }
     }
 
-    fn start_repair(&mut self, prefix: PathBuf) {
-        self.show_repair_dialog = true;
-        let p = prefix.clone();
-        let (tx, rx) = mpsc::channel();
-        thread::spawn(move || {
-            let res = crate::utils::prefix_repair::repair_prefix(&p);
-            let _ = tx.send(res);
-        });
-        self.repair_rx = Some(rx);
-        self.repair_prefix = Some(prefix);
-    }
-
     fn start_task<F>(&mut self, msg: &str, task: F)
     where
         F: FnOnce() -> crate::error::Result<String> + Send + 'static,
@@ -241,7 +218,6 @@ impl ProtonPrefixManagerApp {
     fn handle_action(&mut self, action: Action) {
         use Action::*;
         match action {
-            Repair(p) => self.start_repair(p),
             Backup { app_id, prefix } => {
                 self.start_task("Creating backup...", move || {
                     crate::utils::backup::create_backup(&prefix, app_id)
@@ -359,8 +335,6 @@ impl eframe::App for ProtonPrefixManagerApp {
                             game,
                             &mut self.restore_dialog_open,
                             &mut self.delete_dialog_open,
-                            &mut self.validation_dialog_open,
-                            &mut self.validation_results,
                             &self.tool_status,
                             &mut self.status_message,
                             &mut self.last_status_update,
@@ -478,8 +452,6 @@ impl eframe::App for ProtonPrefixManagerApp {
                             ui,
                             &mut self.restore_dialog_open,
                             &mut self.delete_dialog_open,
-                            &mut self.validation_dialog_open,
-                            &mut self.validation_results,
                             &mut self.config_cache,
                             &mut self.prefix_cache,
                         );
@@ -511,47 +483,6 @@ impl eframe::App for ProtonPrefixManagerApp {
                     &mut self.selected_game,
                 );
             }
-        }
-
-        if self.show_repair_dialog {
-            if let Some(rx) = &self.repair_rx {
-                if let Ok(res) = rx.try_recv() {
-                    self.show_repair_dialog = false;
-                    self.repair_rx = None;
-                    if let Some(prefix) = self.repair_prefix.take() {
-                        match res {
-                            Ok(_) => {
-                                self.validation_results =
-                                    crate::utils::prefix_validator::validate_prefix(&prefix);
-                                tfd::message_box_ok(
-                                    "Repair",
-                                    "Repair completed",
-                                    tfd::MessageBoxIcon::Info,
-                                );
-                            }
-                            Err(e) => {
-                                tfd::message_box_ok(
-                                    "Repair failed",
-                                    &format!("{}", e),
-                                    tfd::MessageBoxIcon::Error,
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            let area = Modal::default_area(egui::Id::new("repair_modal"))
-                .default_size(egui::vec2(240.0, 80.0));
-            Modal::new(egui::Id::new("repair_modal"))
-                .area(area)
-                .frame(egui::Frame::window(&ctx.style()))
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.spinner();
-                        ui.label("Repairing prefix...");
-                    });
-                });
         }
 
         if self.show_task_dialog {

@@ -2,7 +2,6 @@ use crate::cli::{protontricks, winecfg};
 use crate::core::models::GameInfo;
 use crate::core::steam;
 use crate::utils::backup as backup_utils;
-use crate::utils::prefix_validator::{self, CheckResult, CheckStatus};
 use crate::utils::steam_paths;
 use crate::utils::terminal;
 use crate::utils::user_config;
@@ -41,7 +40,6 @@ pub struct PrefixInfo {
 
 #[derive(Debug)]
 pub enum Action {
-    Repair(PathBuf),
     Backup { app_id: u32, prefix: PathBuf },
     Restore { backup: PathBuf, prefix: PathBuf },
     DeleteBackup { backup: PathBuf },
@@ -119,8 +117,6 @@ impl<'a> GameDetails<'a> {
         game: &GameInfo,
         restore_dialog_open: &mut bool,
         delete_dialog_open: &mut bool,
-        validation_dialog_open: &mut bool,
-        validation_results: &mut Vec<CheckResult>,
         tools: &BTreeMap<String, bool>,
         status_message: &mut Option<String>,
         status_time: &mut f64,
@@ -153,11 +149,6 @@ impl<'a> GameDetails<'a> {
                     {
                         action = Some(Action::Reset { prefix: game.prefix_path().to_path_buf() });
                     }
-                    ui.close_menu();
-                }
-                if ui.button("Validate").clicked() {
-                    *validation_dialog_open = true;
-                    *validation_results = prefix_validator::validate_prefix(game.prefix_path());
                     ui.close_menu();
                 }
             });
@@ -360,7 +351,12 @@ impl<'a> GameDetails<'a> {
         versions
     }
 
-    fn restore_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) -> Option<Action> {
+    fn restore_window(
+        &mut self,
+        ctx: &egui::Context,
+        game: &GameInfo,
+        open: &mut bool,
+    ) -> Option<Action> {
         let mut action = None;
         if !*open {
             return action;
@@ -402,7 +398,12 @@ impl<'a> GameDetails<'a> {
         action
     }
 
-    fn delete_window(&mut self, ctx: &egui::Context, game: &GameInfo, open: &mut bool) -> Option<Action> {
+    fn delete_window(
+        &mut self,
+        ctx: &egui::Context,
+        game: &GameInfo,
+        open: &mut bool,
+    ) -> Option<Action> {
         let mut action = None;
         if !*open {
             return action;
@@ -428,7 +429,9 @@ impl<'a> GameDetails<'a> {
                     for backup in backups {
                         let label = backup_utils::format_backup_name(&backup);
                         if ui.button(label).clicked() {
-                            action = Some(Action::DeleteBackup { backup: backup.clone() });
+                            action = Some(Action::DeleteBackup {
+                                backup: backup.clone(),
+                            });
                             should_close = true;
                         }
                     }
@@ -441,98 +444,11 @@ impl<'a> GameDetails<'a> {
         action
     }
 
-    fn validate_window(
-        &self,
-        ctx: &egui::Context,
-        results: &mut Vec<CheckResult>,
-        prefix: &std::path::Path,
-        open: &mut bool,
-    ) -> Option<Action> {
-        if !*open {
-            return None;
-        }
-
-        let mut should_close = false;
-        let mut repair_request: Option<Action> = None;
-        let response = Modal::new(egui::Id::new("validate_modal"))
-            .frame(egui::Frame::window(&ctx.style()))
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("Prefix Validation");
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("Close").clicked() {
-                            should_close = true;
-                        }
-                    });
-                });
-                ui.separator();
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    for r in results.iter() {
-                        let (icon, color) = match r.status {
-                            CheckStatus::Pass => ("✔", egui::Color32::from_rgb(0, 180, 0)),
-                            CheckStatus::Fail(_) => ("✖", egui::Color32::from_rgb(200, 0, 0)),
-                            CheckStatus::Warning(_) => ("⚠", egui::Color32::from_rgb(200, 150, 0)),
-                        };
-
-                        let msg = match &r.status {
-                            CheckStatus::Pass => r.label.clone(),
-                            CheckStatus::Fail(m) | CheckStatus::Warning(m) => {
-                                format!("{} - {}", r.label, m)
-                            }
-                        };
-
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(icon).color(color).strong());
-                            ui.label(msg);
-                        });
-                    }
-                });
-
-                let has_fail = results
-                    .iter()
-                    .any(|r| matches!(r.status, CheckStatus::Fail(_)));
-                let has_warn = results
-                    .iter()
-                    .any(|r| matches!(r.status, CheckStatus::Warning(_)));
-                let summary = if has_fail {
-                    "❌ Prefix has problems"
-                } else if has_warn {
-                    "⚠ Prefix validated with warnings"
-                } else {
-                    "✅ Prefix validated successfully"
-                };
-
-                ui.separator();
-                ui.label(summary);
-
-                if has_fail {
-                    if ui.button("Repair Prefix").clicked() {
-                        if tfd::message_box_yes_no(
-                            "Repair Prefix",
-                            "This will recreate missing directories and run wineboot to regenerate registry files. Continue?",
-                            tfd::MessageBoxIcon::Question,
-                            tfd::YesNo::Yes,
-                        ) == tfd::YesNo::Yes
-                        {
-                            repair_request = Some(Action::Repair(prefix.to_path_buf()));
-                        }
-                    }
-                }
-            });
-
-        if response.should_close() || should_close {
-            *open = false;
-        }
-        repair_request
-    }
-
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
         restore_dialog_open: &mut bool,
         delete_dialog_open: &mut bool,
-        validation_dialog_open: &mut bool,
-        validation_results: &mut Vec<CheckResult>,
         configs: &mut HashMap<u32, GameConfig>,
         info_cache: &mut HashMap<u32, PrefixInfo>,
     ) -> Option<Action> {
@@ -723,15 +639,6 @@ impl<'a> GameDetails<'a> {
                 if let Some(act) = self.delete_window(ui.ctx(), game, delete_dialog_open) {
                     repair_request = Some(act);
                 }
-            }
-
-            if *validation_dialog_open {
-                repair_request = self.validate_window(
-                    ui.ctx(),
-                    validation_results,
-                    game.prefix_path(),
-                    validation_dialog_open,
-                );
             }
         } else {
             ui.centered_and_justified(|ui| {
