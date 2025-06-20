@@ -57,51 +57,51 @@ impl<'a> GameDetails<'a> {
     }
 
     fn show_path(&mut self, ui: &mut egui::Ui, label: &str, path: &Path) {
-        // Create a grid for label and content
-        egui::Grid::new(format!("grid_{}", label))
-            .num_columns(2)
-            .spacing([8.0, 4.0])
-            .show(ui, |ui| {
-                // Label column
-                ui.strong(label);
+        let path_str = path.display().to_string();
+        let copy_id = self.id.with("copy").with(&path_str);
+        let current_time = ui.input(|i| i.time);
+        let copy_time = ui.data_mut(|d| d.get_temp::<f64>(copy_id).unwrap_or(0.0));
+        let is_copied = copy_time > current_time;
 
-                // Action buttons group
-                ui.horizontal(|ui| {
-                    let path_str = path.display().to_string();
-                    let copy_id = self.id.with("copy").with(&path_str);
-                    let current_time = ui.input(|i| i.time);
-                    let copy_time = ui.data_mut(|d| d.get_temp::<f64>(copy_id).unwrap_or(0.0));
-                    let is_copied = copy_time > current_time;
+        ui.horizontal(|ui| {
+            ui.strong(label);
 
-                    let button_size = egui::vec2(24.0, 24.0);
+            // Copy button
+            let copy_text = if is_copied { "✔ Copied" } else { "📋 Copy" };
+            let copy_button = ui.button(copy_text);
+            if copy_button.clicked() {
+                ui.ctx().copy_text(path_str.clone());
+                ui.data_mut(|d| d.insert_temp(copy_id, current_time + 2.0));
+                ui.ctx().request_repaint();
+            }
+            copy_button.on_hover_text(format!("Copy path: {}", path_str));
 
-                    // Copy button with feedback
-                    let copy_button = ui.add_sized(
-                        button_size,
-                        egui::Button::new(if is_copied {
-                            egui::RichText::new("✔").color(egui::Color32::from_rgb(50, 255, 50))
-                        } else {
-                            egui::RichText::new("📋")
-                        }),
-                    );
+            // Open folder button
+            let open_button = ui.button("📂 Open");
+            if open_button.clicked() {
+                let _ = open::that(path);
+            }
+            open_button.on_hover_text(format!("Open: {}", path_str));
 
-                    if copy_button.clicked() {
-                        ui.ctx().copy_text(path_str.clone());
-                        ui.data_mut(|d| d.insert_temp(copy_id, current_time + 2.0));
-                        ui.ctx().request_repaint();
-                    }
-                    copy_button.on_hover_text(format!("Copy path: {}", path_str));
+            // Terminal button
+            let term_button = ui.add_enabled(
+                terminal::terminal_available(),
+                egui::Button::new("🖥 Terminal"),
+            );
+            if term_button.clicked() {
+                if let Err(e) = terminal::open_terminal(path) {
+                    eprintln!("Failed to open terminal: {}", e);
+                }
+            }
+            term_button.on_hover_text(format!("Open terminal at: {}", path_str));
+        });
 
-                    // Open folder button
-                    let open_button = ui.add_sized(button_size, egui::Button::new("📂"));
-                    if open_button.clicked() {
-                        let _ = open::that(path);
-                    }
-                    open_button.on_hover_text(format!("Open: {}", path_str));
-                });
-
-                ui.end_row();
-            });
+        ui.add(
+            egui::Label::new(
+                egui::RichText::new(path_str).small().monospace(),
+            ),
+        );
+        ui.add_space(4.0);
     }
 
     fn game_title_bar(&self, ui: &mut egui::Ui, game: &GameInfo) {
