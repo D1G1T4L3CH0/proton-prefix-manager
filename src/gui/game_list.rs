@@ -1,6 +1,6 @@
+use super::sort::GameSortKey;
 use crate::core::models::GameInfo;
 use eframe::egui;
-use std::cmp::Ordering;
 
 /// Available sort options for the game list
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -22,24 +22,13 @@ impl SortOption {
     }
 }
 
-pub(super) fn compare_games(a: &GameInfo, b: &GameInfo, sort: SortOption) -> Ordering {
-    match sort {
-        SortOption::NameAsc => a
-            .name()
-            .to_lowercase()
-            .cmp(&b.name().to_lowercase()),
-        SortOption::NameDesc => b
-            .name()
-            .to_lowercase()
-            .cmp(&a.name().to_lowercase()),
-        SortOption::ModifiedAsc | SortOption::ModifiedDesc => {
-            let ta = a.modified();
-            let tb = b.modified();
-            if matches!(sort, SortOption::ModifiedAsc) {
-                ta.cmp(&tb)
-            } else {
-                tb.cmp(&ta)
-            }
+impl SortOption {
+    pub(crate) fn as_key(self) -> (GameSortKey, bool) {
+        match self {
+            SortOption::NameAsc => (GameSortKey::Name, false),
+            SortOption::NameDesc => (GameSortKey::Name, true),
+            SortOption::ModifiedAsc => (GameSortKey::Modified, false),
+            SortOption::ModifiedDesc => (GameSortKey::Modified, true),
         }
     }
 }
@@ -69,10 +58,26 @@ impl<'a> GameList<'a> {
                 egui::ComboBox::from_id_salt("sort_combo")
                     .selected_text(sort_option.label())
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(sort_option, SortOption::ModifiedDesc, SortOption::ModifiedDesc.label());
-                        ui.selectable_value(sort_option, SortOption::ModifiedAsc, SortOption::ModifiedAsc.label());
-                        ui.selectable_value(sort_option, SortOption::NameAsc, SortOption::NameAsc.label());
-                        ui.selectable_value(sort_option, SortOption::NameDesc, SortOption::NameDesc.label());
+                        ui.selectable_value(
+                            sort_option,
+                            SortOption::ModifiedDesc,
+                            SortOption::ModifiedDesc.label(),
+                        );
+                        ui.selectable_value(
+                            sort_option,
+                            SortOption::ModifiedAsc,
+                            SortOption::ModifiedAsc.label(),
+                        );
+                        ui.selectable_value(
+                            sort_option,
+                            SortOption::NameAsc,
+                            SortOption::NameAsc.label(),
+                        );
+                        ui.selectable_value(
+                            sort_option,
+                            SortOption::NameDesc,
+                            SortOption::NameDesc.label(),
+                        );
                     });
                 if *sort_option != prev {
                     changed = true;

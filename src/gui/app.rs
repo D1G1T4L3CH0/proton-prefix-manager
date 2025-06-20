@@ -1,8 +1,9 @@
 use super::advanced_search::{advanced_search_dialog, AdvancedSearchState};
 use super::backup_manager::BackupManagerWindow;
 use super::details::{Action, GameConfig, GameDetails, PrefixInfo};
-use super::game_list::{compare_games, GameList};
+use super::game_list::GameList;
 use super::runtime_cleaner::RuntimeCleanerWindow;
+use super::sort::sort_games;
 use super::SortOption;
 use crate::core::models::GameInfo;
 use crate::core::steam;
@@ -123,8 +124,8 @@ impl ProtonPrefixManagerApp {
     }
 
     fn sort_filtered_games(&mut self) {
-        let opt = self.sort_option;
-        self.filtered_games.sort_by(|a, b| compare_games(a, b, opt));
+        let (key, desc) = self.sort_option.as_key();
+        sort_games(&mut self.filtered_games, key, desc);
     }
 
     fn search_games(&mut self) {
