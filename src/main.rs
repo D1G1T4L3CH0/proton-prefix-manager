@@ -137,7 +137,10 @@ fn main() {
             eframe::run_native(
                 "Proton Prefix Manager",
                 native_options,
-                Box::new(|_cc| Ok(Box::new(ProtonPrefixManagerApp::new()))),
+                Box::new(|cc| {
+                    ProtonPrefixManagerApp::setup_fonts(&cc.egui_ctx);
+                    Ok(Box::new(ProtonPrefixManagerApp::new()))
+                }),
             )
             .expect("Failed to start GUI");
         }

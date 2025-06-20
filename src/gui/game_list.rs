@@ -1,6 +1,7 @@
 use super::sort::GameSortKey;
 use crate::core::models::GameInfo;
 use eframe::egui;
+use egui_phosphor::regular;
 
 /// Wrapper to display a game list with sorting controls
 
@@ -40,7 +41,7 @@ impl<'a> GameList<'a> {
                     changed = true;
                 }
 
-                let arrow = if *descending { "\u{2193}" } else { "\u{2191}" };
+                let arrow = if *descending { regular::ARROW_DOWN } else { regular::ARROW_UP };
                 if ui.button(arrow).on_hover_text("Toggle order").clicked() {
                     *descending = !*descending;
                     changed = true;
