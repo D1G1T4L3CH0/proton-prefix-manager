@@ -22,10 +22,12 @@ pub struct CheckResult {
 
 fn detect_proton_version(prefix_path: &Path) -> Option<String> {
     let version_file = prefix_path.join("version");
+    log::debug!("looking for version in {:?}", version_file);
     if version_file.exists() {
         if let Ok(contents) = fs::read_to_string(&version_file) {
             let version = contents.trim().to_string();
             if !version.is_empty() {
+                log::debug!("found version '{}' in {:?}", version, version_file);
                 return Some(version);
             }
         }
@@ -33,10 +35,12 @@ fn detect_proton_version(prefix_path: &Path) -> Option<String> {
 
     if let Some(parent) = prefix_path.parent() {
         let version_file = parent.join("version");
+        log::debug!("looking for version in parent {:?}", version_file);
         if version_file.exists() {
             if let Ok(contents) = fs::read_to_string(&version_file) {
                 let version = contents.trim().to_string();
                 if !version.is_empty() {
+                    log::debug!("found version '{}' in {:?}", version, version_file);
                     return Some(version);
                 }
             }
@@ -47,6 +51,7 @@ fn detect_proton_version(prefix_path: &Path) -> Option<String> {
 }
 
 fn proton_runtime_exists(version: &str) -> bool {
+    log::debug!("checking for Proton runtime version: {}", version);
     let mut candidates = vec![version.to_string()];
 
     let normalized = version.trim();
@@ -68,7 +73,10 @@ fn proton_runtime_exists(version: &str) -> bool {
         }
     }
 
+    log::debug!("runtime candidates: {:?}", candidates);
+
     if let Ok(libs) = steam::get_steam_libraries() {
+        log::debug!("searching libraries for runtime");
         for cand in &candidates {
             for lib in &libs {
                 if lib.join("steamapps/common").join(cand).exists() {
@@ -77,6 +85,7 @@ fn proton_runtime_exists(version: &str) -> bool {
             }
         }
     }
+    log::debug!("searching compatibilitytools dirs");
     for dir in steam_paths::compatibilitytools_dirs() {
         for cand in &candidates {
             if dir.join(cand).exists() {
@@ -113,20 +122,24 @@ impl CheckResult {
 /// Validate a Proton prefix directory. `prefix` should be the compatdata/<appid>
 /// directory, which contains a `pfx` subdirectory.
 pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
+    log::debug!("validating prefix at {:?}", prefix);
     let mut results = Vec::new();
 
     // 1. Directory exists and is directory
     if !prefix.exists() {
+        log::debug!("prefix directory {:?} not found", prefix);
         results.push(CheckResult::fail("Prefix directory", "Directory not found"));
         return results;
     }
     if !prefix.is_dir() {
+        log::debug!("prefix path {:?} is not a directory", prefix);
         results.push(CheckResult::fail("Prefix directory", "Not a directory"));
         return results;
     }
     results.push(CheckResult::pass("Prefix directory"));
 
     let pfx = prefix.join("pfx");
+    log::debug!("checking {:?}", pfx);
     if !pfx.exists() {
         results.push(CheckResult::fail("pfx folder", "Missing pfx directory"));
         return results;
@@ -142,6 +155,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
 
     // Required subdirectories
     let drive_c = pfx.join("drive_c");
+    log::debug!("checking drive_c at {:?}", drive_c);
     if drive_c.is_dir() {
         results.push(CheckResult::pass("drive_c"));
     } else {
@@ -149,6 +163,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
     }
 
     let dosdevices = pfx.join("dosdevices");
+    log::debug!("checking dosdevices at {:?}", dosdevices);
     if dosdevices.is_dir() {
         results.push(CheckResult::pass("dosdevices"));
     } else {
@@ -160,6 +175,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
 
     // Registry files
     for name in ["system.reg", "user.reg", "userdef.reg"] {
+        log::debug!("checking registry file {}", name);
         let path = pfx.join(name);
         if path.is_file() {
             match fs::metadata(&path) {
@@ -180,6 +196,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
     }
 
     let winetricks_log = pfx.join("winetricks.log");
+    log::debug!("checking winetricks log at {:?}", winetricks_log);
     if winetricks_log.is_file() {
         results.push(CheckResult::pass("winetricks.log"));
     } else {
@@ -188,6 +205,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
 
     // windows directory under drive_c
     let windows_dir = drive_c.join("windows");
+    log::debug!("checking windows directory at {:?}", windows_dir);
     if windows_dir.is_dir() {
         results.push(CheckResult::pass("drive_c/windows"));
     } else {
@@ -199,6 +217,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
 
     // Optional heuristics
     let program_files = drive_c.join("Program Files");
+    log::debug!("checking Program Files at {:?}", program_files);
     if program_files.exists() {
         results.push(CheckResult::pass("Program Files"));
     } else {
@@ -206,6 +225,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
     }
 
     let user_dir = drive_c.join("users/steamuser");
+    log::debug!("checking users/steamuser at {:?}", user_dir);
     if user_dir.exists() {
         results.push(CheckResult::pass("users/steamuser"));
     } else {
@@ -213,6 +233,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
     }
 
     let mut broken_symlinks = 0;
+    log::debug!("scanning {:?} for symlinks", pfx);
     for entry in WalkDir::new(&pfx) {
         if let Ok(e) = entry {
             if e.file_type().is_symlink() {
@@ -239,6 +260,7 @@ pub fn validate_prefix(prefix: &Path) -> Vec<CheckResult> {
     }
 
     if let Some(ver) = detect_proton_version(prefix) {
+        log::debug!("detected proton version: {}", ver);
         if proton_runtime_exists(&ver) {
             results.push(CheckResult::pass("Proton runtime"));
         } else {
