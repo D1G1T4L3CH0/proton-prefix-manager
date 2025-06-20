@@ -2,36 +2,7 @@ use super::sort::GameSortKey;
 use crate::core::models::GameInfo;
 use eframe::egui;
 
-/// Available sort options for the game list
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum SortOption {
-    NameAsc,
-    NameDesc,
-    ModifiedAsc,
-    ModifiedDesc,
-}
-
-impl SortOption {
-    pub fn label(&self) -> &'static str {
-        match self {
-            SortOption::NameAsc => "Name \u{2191}",
-            SortOption::NameDesc => "Name \u{2193}",
-            SortOption::ModifiedAsc => "Last Modified \u{2191}",
-            SortOption::ModifiedDesc => "Last Modified \u{2193}",
-        }
-    }
-}
-
-impl SortOption {
-    pub(crate) fn as_key(self) -> (GameSortKey, bool) {
-        match self {
-            SortOption::NameAsc => (GameSortKey::Name, false),
-            SortOption::NameDesc => (GameSortKey::Name, true),
-            SortOption::ModifiedAsc => (GameSortKey::Modified, false),
-            SortOption::ModifiedDesc => (GameSortKey::Modified, true),
-        }
-    }
-}
+/// Wrapper to display a game list with sorting controls
 
 pub struct GameList<'a> {
     games: &'a [GameInfo],
@@ -46,7 +17,8 @@ impl<'a> GameList<'a> {
         &mut self,
         ui: &mut egui::Ui,
         selected_game: &mut Option<GameInfo>,
-        sort_option: &mut SortOption,
+        sort_key: &mut GameSortKey,
+        descending: &mut bool,
     ) -> bool {
         let mut changed = false;
         ui.vertical(|ui| {
@@ -54,32 +26,23 @@ impl<'a> GameList<'a> {
 
             ui.horizontal(|ui| {
                 ui.label("Sort by:");
-                let prev = *sort_option;
-                egui::ComboBox::from_id_salt("sort_combo")
-                    .selected_text(sort_option.label())
+                let prev = *sort_key;
+                egui::ComboBox::from_id_source("sort_combo")
+                    .selected_text(sort_key.label())
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            sort_option,
-                            SortOption::ModifiedDesc,
-                            SortOption::ModifiedDesc.label(),
-                        );
-                        ui.selectable_value(
-                            sort_option,
-                            SortOption::ModifiedAsc,
-                            SortOption::ModifiedAsc.label(),
-                        );
-                        ui.selectable_value(
-                            sort_option,
-                            SortOption::NameAsc,
-                            SortOption::NameAsc.label(),
-                        );
-                        ui.selectable_value(
-                            sort_option,
-                            SortOption::NameDesc,
-                            SortOption::NameDesc.label(),
-                        );
+                        ui.selectable_value(sort_key, GameSortKey::LastPlayed, "Last Played");
+                        ui.selectable_value(sort_key, GameSortKey::LastUpdated, "Last Updated");
+                        ui.selectable_value(sort_key, GameSortKey::Name, "Name");
+                        ui.selectable_value(sort_key, GameSortKey::AppId, "AppID");
+                        ui.selectable_value(sort_key, GameSortKey::ProtonVersion, "Proton Version");
                     });
-                if *sort_option != prev {
+                if *sort_key != prev {
+                    changed = true;
+                }
+
+                let arrow = if *descending { "\u{2193}" } else { "\u{2191}" };
+                if ui.button(arrow).on_hover_text("Toggle order").clicked() {
+                    *descending = !*descending;
                     changed = true;
                 }
             });
