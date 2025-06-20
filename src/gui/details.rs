@@ -468,12 +468,13 @@ impl<'a> GameDetails<'a> {
         results: &mut Vec<CheckResult>,
         prefix: &std::path::Path,
         open: &mut bool,
-    ) {
+    ) -> Option<std::path::PathBuf> {
         if !*open {
-            return;
+            return None;
         }
 
         let mut should_close = false;
+        let mut repair_request = None;
         let response = Modal::new(egui::Id::new("validate_modal"))
             .frame(egui::Frame::window(&ctx.style()))
             .show(ctx, |ui| {
@@ -534,24 +535,7 @@ impl<'a> GameDetails<'a> {
                             tfd::YesNo::Yes,
                         ) == tfd::YesNo::Yes
                         {
-                            match crate::utils::prefix_repair::repair_prefix(prefix) {
-                                Ok(_) => {
-                                    *results =
-                                        crate::utils::prefix_validator::validate_prefix(prefix);
-                                    tfd::message_box_ok(
-                                        "Repair",
-                                        "Repair completed",
-                                        tfd::MessageBoxIcon::Info,
-                                    );
-                                }
-                                Err(e) => {
-                                    tfd::message_box_ok(
-                                        "Repair failed",
-                                        &format!("{}", e),
-                                        tfd::MessageBoxIcon::Error,
-                                    );
-                                }
-                            }
+                            repair_request = Some(prefix.to_path_buf());
                         }
                     }
                 }
@@ -560,6 +544,7 @@ impl<'a> GameDetails<'a> {
         if response.should_close() || should_close {
             *open = false;
         }
+        repair_request
     }
 
     pub fn show(
@@ -571,7 +556,8 @@ impl<'a> GameDetails<'a> {
         validation_results: &mut Vec<CheckResult>,
         configs: &mut HashMap<u32, GameConfig>,
         info_cache: &mut HashMap<u32, PrefixInfo>,
-    ) {
+    ) -> Option<std::path::PathBuf> {
+        let mut repair_request = None;
         if let Some(game) = self.game {
             self.game_title_bar(ui, game);
 
@@ -757,7 +743,7 @@ impl<'a> GameDetails<'a> {
             }
 
             if *validation_dialog_open {
-                self.validate_window(
+                repair_request = self.validate_window(
                     ui.ctx(),
                     validation_results,
                     game.prefix_path(),
@@ -769,6 +755,7 @@ impl<'a> GameDetails<'a> {
                 ui.label("Select a game to view details");
             });
         }
+        repair_request
     }
 }
 

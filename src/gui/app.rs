@@ -10,10 +10,14 @@ use crate::utils::dependencies::scan_tools;
 use crate::utils::prefix_validator::CheckResult;
 use crate::utils::terminal;
 use eframe::egui;
+use eframe::egui::Modal;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Receiver};
 use std::thread;
+use tinyfiledialogs as tfd;
 
 pub struct ProtonPrefixManagerApp {
     loading: bool,
@@ -42,6 +46,9 @@ pub struct ProtonPrefixManagerApp {
     show_advanced_search: bool,
     adv_state: AdvancedSearchState,
     sort_option: SortOption,
+    show_repair_dialog: bool,
+    repair_rx: Option<Receiver<crate::error::Result<()>>>,
+    repair_prefix: Option<PathBuf>,
 }
 
 impl Default for ProtonPrefixManagerApp {
@@ -77,6 +84,9 @@ impl Default for ProtonPrefixManagerApp {
             show_advanced_search: false,
             adv_state: AdvancedSearchState::default(),
             sort_option: SortOption::ModifiedDesc,
+            show_repair_dialog: false,
+            repair_rx: None,
+            repair_prefix: None,
         }
     }
 }
@@ -194,6 +204,18 @@ impl ProtonPrefixManagerApp {
             // Set the custom visuals
             ctx.set_visuals(visuals);
         }
+    }
+
+    fn start_repair(&mut self, prefix: PathBuf) {
+        self.show_repair_dialog = true;
+        let p = prefix.clone();
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let res = crate::utils::prefix_repair::repair_prefix(&p);
+            let _ = tx.send(res);
+        });
+        self.repair_rx = Some(rx);
+        self.repair_prefix = Some(prefix);
     }
 }
 
@@ -399,7 +421,7 @@ impl eframe::App for ProtonPrefixManagerApp {
                     .auto_shrink([false; 2])
                     .id_salt("details_panel")
                     .show(ui, |ui| {
-                        GameDetails::new(self.selected_game.as_ref()).show(
+                        let repair = GameDetails::new(self.selected_game.as_ref()).show(
                             ui,
                             &mut self.restore_dialog_open,
                             &mut self.delete_dialog_open,
@@ -408,6 +430,9 @@ impl eframe::App for ProtonPrefixManagerApp {
                             &mut self.config_cache,
                             &mut self.prefix_cache,
                         );
+                        if let Some(p) = repair {
+                            self.start_repair(p);
+                        }
                     });
             });
         });
@@ -433,6 +458,44 @@ impl eframe::App for ProtonPrefixManagerApp {
                     &mut self.selected_game,
                 );
             }
+        }
+
+        if self.show_repair_dialog {
+            if let Some(rx) = &self.repair_rx {
+                if let Ok(res) = rx.try_recv() {
+                    self.show_repair_dialog = false;
+                    self.repair_rx = None;
+                    if let Some(prefix) = self.repair_prefix.take() {
+                        match res {
+                            Ok(_) => {
+                                self.validation_results =
+                                    crate::utils::prefix_validator::validate_prefix(&prefix);
+                                tfd::message_box_ok(
+                                    "Repair",
+                                    "Repair completed",
+                                    tfd::MessageBoxIcon::Info,
+                                );
+                            }
+                            Err(e) => {
+                                tfd::message_box_ok(
+                                    "Repair failed",
+                                    &format!("{}", e),
+                                    tfd::MessageBoxIcon::Error,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            Modal::new(egui::Id::new("repair_modal"))
+                .frame(egui::Frame::window(&ctx.style()))
+                .show(ctx, |ui| {
+                    ui.centered_and_justified(|ui| {
+                        ui.spinner();
+                        ui.label("Repairing prefix...");
+                    });
+                });
         }
 
         // Periodically rescan for external tools so disabled buttons can update
